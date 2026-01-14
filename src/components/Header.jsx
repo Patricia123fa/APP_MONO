@@ -1,5 +1,5 @@
 import logo from '../assets/logo.png'
-//MUESTRA LA PARTE SUPERIOR DE LA PANTALLA CON EL LOGO Y LA DESCRIPCIÓN DE LA PÁGINA
+//MUESTRA LA PARTE SUPERIOR DE LA PANTALLA CON EL LOGO Y LA DESCRIPCIÓN DE LA INFORMACIÓN DE LA PÁGINA
 export const Header = () => {
   return (
     <header className="bg-[#fdc436] border-gray-500 p-4">

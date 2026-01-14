@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { empleados } from "../data/Trabajadores.js"
 
-
+//SEGÚN LA LISTA DE EMPLEADOS EN "TRABAJADORES" SE SELECCIONAN CADA UNO DE ELLOS Y LO RELACIONA CON SU RESPECTIVA FOTO
 export default function SeleccionarEmpleado() {
   const [seleccionado, setSeleccionado] = useState("");
 
@@ -13,7 +13,7 @@ export default function SeleccionarEmpleado() {
       <select
         value={seleccionado}
         onChange={(e) => setSeleccionado(e.target.value)}
-        className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e]"
       >
         <option value="">-- Selecciona --</option>
         {empleados.map((emp) => (

@@ -3,7 +3,7 @@ import { empleados } from "../data/Trabajadores";
 import { companies } from "../data/Empresas";
 
 export default function ExportarDatos() {
-  // Unir datos de ejemplo: empleado + empresa + proyecto
+//DATOS POR EMPRESA Y COMPAÑÍA (PRUEBA SIN BASE DE DATOS, NECESITAMOS LA BASE DE DATOS)
   const datos = [];
 
   empleados.forEach(emp => {
@@ -18,6 +18,7 @@ export default function ExportarDatos() {
     });
   });
 
+  // SE EXPORTAN LOS DATOS CRUZADOS DE EMPLEADOS Y EMPRESAS
   const exportCSV = () => {
     if (datos.length === 0) return;
     const headers = Object.keys(datos[0]).join(",");
@@ -30,7 +31,7 @@ export default function ExportarDatos() {
     link.setAttribute("download", "datos.csv");
     link.click();
   };
-
+  // EXPORTAMOS EL PDF DE EMPRESAS Y EMPLEADOS
   const exportPDF = () => {
     if (datos.length === 0) return;
     const doc = new jsPDF();
@@ -52,15 +53,15 @@ export default function ExportarDatos() {
 
     doc.save("datos.pdf");
   };
-
+  //LOS BOTONES DE EXPORTACIÓN QUE ES LO QUE MOSTRAMOS AL USUARIO DE LA APP
   return (
     <div className="max-w-md mx-auto mt-6 p-4 bg-white rounded-lg shadow-md text-center">
       <h2 className="font-semibold mb-2">Exportar datos</h2>
       <div className="flex gap-4 justify-center">
-        <button onClick={exportCSV} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+        <button onClick={exportCSV} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-[#e4201e]">
           Exportar CSV
         </button>
-        <button onClick={exportPDF} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+        <button onClick={exportPDF} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-[#e4201e]">
           Exportar PDF
         </button>
       </div>

@@ -1,4 +1,5 @@
 import React from 'react'
+//MAIN QUE TENEMOS QUE TRASLADAR PORQUE SE TRATA DEL LOGIN
 export const Main = () => (
   <div className="min-h-screen flex items-start justify-center bg-[#fdc436]">
     <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm bg-white/50 backdrop-blur-md rounded-xl p-8 shadow-lg">

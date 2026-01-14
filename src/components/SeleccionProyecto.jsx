@@ -6,7 +6,7 @@ export default function SeleccionarProyectoModal() {
   const [empresaSeleccionada, setEmpresaSeleccionada] = useState("");
   const [proyectoSeleccionado, setProyectoSeleccionado] = useState("");
 
-  // Modal
+  //MODAL
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState("");
   const [inputValue, setInputValue] = useState("");
@@ -61,7 +61,7 @@ export default function SeleccionarProyectoModal() {
             setEmpresaSeleccionada(e.target.value);
             setProyectoSeleccionado("");
           }}
-          className="w-64 truncate p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-64 truncate p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e]"
         >
           <option value="">-- Selecciona --</option>
           {companies.map((c) => (
@@ -75,9 +75,9 @@ export default function SeleccionarProyectoModal() {
             setModalType("empresa");
             setShowModal(true);
           }}
-          className="w-32 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex-shrink-0"
+          className="w-32 px-4 py-2 bg-gray-600 text-white rounded hover:bg-[#e4201e] shrink-0"
         >
-          + Empresa
+          Añadir
         </button>
       </div>
       <label className="block mb-2 font-semibold text-gray-700">
@@ -88,7 +88,7 @@ export default function SeleccionarProyectoModal() {
           value={proyectoSeleccionado}
           onChange={(e) => setProyectoSeleccionado(e.target.value)}
           disabled={!empresa}
-          className="w-64 truncate p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-64 truncate p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e]"
         >
           <option value="">-- Selecciona --</option>
           {proyectos.map((p) => (
@@ -103,9 +103,9 @@ export default function SeleccionarProyectoModal() {
               setModalType("proyecto");
               setShowModal(true);
             }}
-            className="w-32 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex-shrink-0"
+            className="w-32 px-4 py-2  bg-gray-600 text-white rounded hover:bg-[#e4201e] shrink-0"
           >
-            + Proyecto
+            Añadir
           </button>
         )}
       </div>
@@ -144,13 +144,13 @@ export default function SeleccionarProyectoModal() {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowModal(false)}
-                className="w-32 px-4 py-2 rounded border hover:bg-gray-100 flex-shrink-0"
+                className="w-32 px-4 py-2 rounded border hover:bg-gray-100 shrink-0"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleAdd}
-                className="w-32 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex-shrink-0"
+                className="w-32 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 shrink-0"
               >
                 Añadir
               </button>

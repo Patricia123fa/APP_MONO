@@ -1,4 +1,6 @@
 import monologo from '../assets/monologo.png'
+
+//IMÁGENES DE PLÁTANOS PARA EL FONDO
 export const Footer = () => {
   const platanos = [
     { src: monologo, alt: "plátano 1", size: "w-10 sm:w-5 md:w-28" },
