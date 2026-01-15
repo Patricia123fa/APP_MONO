@@ -55,7 +55,7 @@ export default function ExportarDatos() {
   };
   //LOS BOTONES DE EXPORTACIÓN QUE ES LO QUE MOSTRAMOS AL USUARIO DE LA APP
   return (
-    <div className="max-w-md mx-auto mt-6 p-4 bg-white rounded-lg shadow-md text-center">
+    <div className="max-w-md mx-auto mt-6 p-4 bg-white/50 rounded-lg shadow-md text-center">
       <h2 className="font-semibold mb-2">Exportar datos</h2>
       <div className="flex gap-4 justify-center">
         <button onClick={exportCSV} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-[#e4201e]">

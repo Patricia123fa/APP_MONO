@@ -1,11 +1,17 @@
   import {Header} from '../components/Header'
-  import {Main} from '../components/Main'
   import {Footer} from '../components/Footer'
+  import SeleccionarEmpleado from '../components/SeleccionEmpleado'
+  import SeleccionProyecto from '../components/SeleccionProyecto'
+  import Exportacion from '../components/Exportación'
+  import Calendario from '../components/Calendario'
+  
   export const IntroHoras =() => {
-  return ( //PASAR AQUÍ LA PARTE DE MAIN QUE SE REFIERE AL LOGIN
+  return ( 
     <div className="bg-[#fdc436] min-h-screen">
-      <Header />
-      <Footer />
+      <SeleccionarEmpleado/>
+      <SeleccionProyecto />
+      <Calendario />
+      <Exportacion />
       <p className="p-4 text-gray-700"></p>
     </div>
   )

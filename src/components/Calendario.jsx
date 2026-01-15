@@ -6,8 +6,7 @@ export default function Calendario({ label = "Seleccionar fecha", onChange }) {
   const [startDate, setStartDate] = useState(null);
   const [weekOfYear, setWeekOfYear] = useState(null);
 
-  //FUNCION CON LA CUAL CALCULAMOS LA SEMANA DEL AÑO SIN SELECCIONARLA DIRECTAMENTE
-
+  // FUNCION PARA CALCULAR LA SEMANA DEL AÑO
   const getWeekOfYear = (date) => {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     const dayNum = d.getUTCDay() || 7; 
@@ -16,34 +15,38 @@ export default function Calendario({ label = "Seleccionar fecha", onChange }) {
     const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
     return weekNo;
   };
-  //GESTIONAMOS EL CAMBIO
+
+  // GESTIONAMOS EL CAMBIO
   const handleChange = (date) => {
     setStartDate(date);
     const week = getWeekOfYear(date);
     setWeekOfYear(week);
     onChange?.({ date, weekOfYear: week });
   };
-  // LA INFORMACIÓN QUE DEVOLVEMOS, QUE ES LA FECHA Y EL NUMERO DE LA SEMANA QUE CORRESPONDE
-  return (
-    <div className="flex flex-col items-start">
-      <DatePicker
-        selected={startDate}
-        onChange={handleChange}
-        customInput={
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#fdc436] text-white rounded-lg hover:bg-[#e4201e] transition">
-            📅 {startDate ? startDate.toLocaleDateString() : label}
-          </button>
-        }
-        calendarClassName="shadow-lg rounded-lg p-2"
-        popperPlacement="bottom-start"
-      />
 
-      {startDate && (
-        <p className="mt-2 text-gray-700">
-          Fecha seleccionada: <strong>{startDate.toLocaleDateString()}</strong> <br />
-          Semana del año: <strong>{weekOfYear}</strong>
-        </p>
-      )}
+  return (
+    <div className="flex flex-col items-center justify-center p-4">
+      {/* Contenedor pequeño para el calendario */}
+      <div className="flex flex-col items-center bg-white/50 p-4 rounded-lg shadow-md w-full max-w-xs">
+        <DatePicker
+          selected={startDate}
+          onChange={handleChange}
+          customInput={
+            <button className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-[#fdc436] text-white font-semibold rounded-lg hover:bg-[#e4201e] transition">
+              📅 {startDate ? startDate.toLocaleDateString() : label}
+            </button>
+          }
+          calendarClassName="shadow-lg rounded-lg p-2"
+          popperPlacement="bottom-start"
+        />
+
+        {startDate && (
+          <p className="mt-3 text-center text-gray-700 text-sm">
+            Fecha: <strong>{startDate.toLocaleDateString()}</strong> <br />
+            Semana: <strong>{weekOfYear}</strong>
+          </p>
+        )}
+      </div>
     </div>
   );
 }

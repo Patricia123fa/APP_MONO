@@ -6,7 +6,7 @@ export default function SeleccionarProyectoModal() {
   const [empresaSeleccionada, setEmpresaSeleccionada] = useState("");
   const [proyectoSeleccionado, setProyectoSeleccionado] = useState("");
 
-  //MODAL
+  // MODAL
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState("");
   const [inputValue, setInputValue] = useState("");
@@ -50,68 +50,76 @@ export default function SeleccionarProyectoModal() {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-8 p-4 bg-white rounded-lg shadow-md">
-      <label className="block mb-2 font-semibold text-gray-700">
-        Selecciona una empresa:
-      </label>
-      <div className="flex gap-2 mb-4">
-        <select
-          value={empresaSeleccionada}
-          onChange={(e) => {
-            setEmpresaSeleccionada(e.target.value);
-            setProyectoSeleccionado("");
-          }}
-          className="w-64 truncate p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e]"
-        >
-          <option value="">-- Selecciona --</option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <button
-          onClick={() => {
-            setModalType("empresa");
-            setShowModal(true);
-          }}
-          className="w-32 px-4 py-2 bg-gray-600 text-white rounded hover:bg-[#e4201e] shrink-0"
-        >
-          Añadir
-        </button>
-      </div>
-      <label className="block mb-2 font-semibold text-gray-700">
-        Selecciona un proyecto:
-      </label>
-      <div className="flex gap-2 mb-4">
-        <select
-          value={proyectoSeleccionado}
-          onChange={(e) => setProyectoSeleccionado(e.target.value)}
-          disabled={!empresa}
-          className="w-64 truncate p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e]"
-        >
-          <option value="">-- Selecciona --</option>
-          {proyectos.map((p) => (
-            <option key={p.id} value={p.name}>
-              {p.name} ({p.status})
-            </option>
-          ))}
-        </select>
-        {empresaSeleccionada && (
+    <div className="max-w-md mx-auto mt-8 p-6 bg-white/60 rounded-lg shadow-md">
+      {/* SELECCIÓN DE EMPRESA */}
+      <div className="mb-6">
+        <label className="block mb-2 font-semibold text-gray-700">
+          Selecciona una empresa:
+        </label>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <select
+            value={empresaSeleccionada}
+            onChange={(e) => {
+              setEmpresaSeleccionada(e.target.value);
+              setProyectoSeleccionado("");
+            }}
+            className="w-full sm:flex-1 p-3 border rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e] h-12"
+          >
+            <option value="">-- Selecciona --</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
           <button
             onClick={() => {
-              setModalType("proyecto");
+              setModalType("empresa");
               setShowModal(true);
             }}
-            className="w-32 px-4 py-2  bg-gray-600 text-white rounded hover:bg-[#e4201e] shrink-0"
+            className="w-full sm:w-auto h-12 px-4 bg-gray-600 text-white rounded hover:bg-[#e4201e]"
           >
             Añadir
           </button>
-        )}
+        </div>
       </div>
 
+      {/* SELECCIÓN DE PROYECTO */}
+      <div className="mb-6">
+        <label className="block mb-2 font-semibold text-gray-700">
+          Selecciona un proyecto:
+        </label>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <select
+            value={proyectoSeleccionado}
+            onChange={(e) => setProyectoSeleccionado(e.target.value)}
+            disabled={!empresa}
+            className="w-full sm:flex-1 p-3 border rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e] h-12"
+          >
+            <option value="">-- Selecciona --</option>
+            {proyectos.map((p) => (
+              <option key={p.id} value={p.name}>
+                {p.name} ({p.status})
+              </option>
+            ))}
+          </select>
+          {empresaSeleccionada && (
+            <button
+              onClick={() => {
+                setModalType("proyecto");
+                setShowModal(true);
+              }}
+              className="w-full sm:w-auto h-12 px-4 bg-gray-600 text-white rounded hover:bg-[#e4201e]"
+            >
+              Añadir
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* INFO SELECCIONADA */}
       {empresaSeleccionada && proyectoSeleccionado && (
-        <div className="mt-4 p-3 bg-gray-100 rounded">
+        <div className="mt-4 p-4 bg-gray-100 rounded">
           <p>
             <span className="font-semibold">Empresa:</span> {empresa.name}
           </p>
@@ -121,7 +129,7 @@ export default function SeleccionarProyectoModal() {
         </div>
       )}
 
-
+      {/* MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-80 shadow-lg">
@@ -134,23 +142,23 @@ export default function SeleccionarProyectoModal() {
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
               placeholder={
                 modalType === "empresa"
                   ? "Nombre de la empresa"
                   : "Nombre del proyecto"
               }
             />
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="w-32 px-4 py-2 rounded border hover:bg-gray-100 shrink-0"
+                className="w-full sm:w-auto px-4 py-2 rounded border hover:bg-gray-100"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleAdd}
-                className="w-32 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 shrink-0"
+                className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
               >
                 Añadir
               </button>
@@ -161,6 +169,4 @@ export default function SeleccionarProyectoModal() {
     </div>
   );
 }
-
-
 

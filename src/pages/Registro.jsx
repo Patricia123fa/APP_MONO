@@ -1,13 +1,13 @@
-  import {Header} from '../components/Header'
-  import {Main} from '../components/Main'
-  import {Footer} from '../components/Footer'
-  export const Registro =() => {
-  return ( //PASAR AQUÍ LA PARTE DE MAIN QUE SE REFIERE AL LOGIN
+import { Header } from '../components/Header'
+import { Log } from '../components/Log'
+import { Footer } from '../components/Footer'
+
+export const Registro = ({ setIsAuth }) => {
+  return (
     <div className="bg-[#fdc436] min-h-screen">
       <Header />
-      <Main />
+      <Log setIsAuth={setIsAuth} />
       <Footer />
-      <p className="p-4 text-gray-700"></p>
     </div>
   )
-  }
+}

@@ -1,28 +1,17 @@
+import { useState } from "react"
+import { Registro } from "./pages/Registro"
+import { Principal } from "./pages/Principal"
 
-import React from 'react';
-import './App.css';
-import {Header} from './components/Header';
-import SeleccionEmpleado from './components/SeleccionEmpleado';
-import SeleccionProyecto from './components/SeleccionProyecto';
-import { Footer } from './components/Footer';
-import Calendario from './components/Calendario';
-import SelectorHoras from './components/SelectorHoras';
-import ExportarDatos from './components/Exportación';
 function App() {
+  const [isAuth, setIsAuth] = useState(false)
+//SI LA CONTRASEÑA ES CORRECTA Y PASA A PANTALLA PRINCIPAL.
   return (
-    <div className="bg-[#fdc436] min-h-screen p-8">
-      <Header />
-      <SeleccionEmpleado />
-      <SeleccionProyecto />
-      <Calendario/>
-      <SelectorHoras />
-      <ExportarDatos />
-      <Footer/>
-      
-  
-    </div>
-  );
+    <>
+      {isAuth ? <Principal /> : <Registro setIsAuth={setIsAuth} />}
+    </>
+  )
 }
 
-export default App;
+export default App
+
 
