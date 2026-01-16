@@ -1,12 +1,14 @@
 import { useState } from "react";
 
 export default function SelectorHoras15min() {
+  //ESTADO QUE EN UN PRINCIPIO EMPIEZA POR 15 MIN
   const [minutos, setMinutos] = useState(15); 
 
 //FUNCIÓN PARA MOSTRAR EL FORMATO DE LAS HORAS EN HH:MM
   const formatHoras = (min) => {
     const h = Math.floor(min / 60);
     const m = min % 60;
+    //ASEGURA QUE LOS NÚMEROS TENGAN SIEMPRE 2 DÍGITOS, Y LO RELLENA CON 0 SINO
     return `${h}:${m.toString().padStart(2, "0")}`;
   };
 
@@ -18,18 +20,19 @@ export default function SelectorHoras15min() {
   const handleChange = (e) => {
     let value = e.target.value;
 
-    //SE CONVIERTE A MINUTOS
+    //SEPARA LA CADENA CONVIRTIÉNDOLO 
     const partes = value.split(":");
     if (partes.length === 2) {
       let h = parseInt(partes[0]) || 0;
       let m = parseInt(partes[1]) || 0;
 
+      //PARA QUE SIEMPRE SEAN MÚLTIPLOS DE 15
       m = Math.round(m / 15) * 15;
       if (m === 60) {
         h += 1;
         m = 0;
       }
-
+      //SE CONVIERTE A MINUTOS TOTALES Y SET
       const total = h * 60 + m;
       setMinutos(total >= 0 ? total : 0);
     }

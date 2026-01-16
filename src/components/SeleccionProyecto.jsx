@@ -2,11 +2,13 @@ import { useState } from "react";
 import companiesData from "../data/Empresas";
 
 export default function SeleccionarProyectoModal() {
+  //DATOS INICIALES 
   const [companies, setCompanies] = useState(companiesData);
+  //GUARDA LOS VALORES
   const [empresaSeleccionada, setEmpresaSeleccionada] = useState("");
   const [proyectoSeleccionado, setProyectoSeleccionado] = useState("");
 
-  // MODAL
+  // MODAL QUE SIRVE PARA MOSTRAR O NO MOSTRAR LOS PROYECTOS DE LA EMPRESA SELECCIONADA
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState("");
   const [inputValue, setInputValue] = useState("");
@@ -14,8 +16,9 @@ export default function SeleccionarProyectoModal() {
   const empresa = companies.find(
     (c) => c.id === parseInt(empresaSeleccionada)
   );
+  //SI HAY EMPRESA, MUESTRA LOS PROYECTOS, SINO, NO MUESTRA NADA
   const proyectos = empresa ? empresa.projects : [];
-
+  //GESTIONAR AÑADIR LA EMPRESA
   const handleAdd = () => {
     if (!inputValue.trim()) return;
 
@@ -27,8 +30,10 @@ export default function SeleccionarProyectoModal() {
         industry: "",
         projects: [],
       };
+      //SE CREA LA EMPRESA Y SE AÑADE Y DESPUÉS LO MISMO CON LOS PROYECTOS.
       setCompanies([...companies, nueva]);
     } else if (modalType === "proyecto") {
+      //PRIMERO COMPRUEBA QUE HAY UNA EMPRESA RELACIONADA
       if (!empresaSeleccionada) return;
       setCompanies(
         companies.map((c) =>
@@ -44,7 +49,7 @@ export default function SeleccionarProyectoModal() {
         )
       );
     }
-
+    //CIERRA DEL MODAL
     setInputValue("");
     setShowModal(false);
   };
@@ -60,6 +65,7 @@ export default function SeleccionarProyectoModal() {
           <select
             value={empresaSeleccionada}
             onChange={(e) => {
+              //EL VALOR CLAVE ES LA ID DE LA EMPRESA. SI CAMBIA, EL PROYECTO CAMBIA
               setEmpresaSeleccionada(e.target.value);
               setProyectoSeleccionado("");
             }}
@@ -93,6 +99,7 @@ export default function SeleccionarProyectoModal() {
           <select
             value={proyectoSeleccionado}
             onChange={(e) => setProyectoSeleccionado(e.target.value)}
+            //SI NO HAY EMPRESA SELECCIONADA, PROYECTO DESHABILITADO. EL MODAL CAMBIA
             disabled={!empresa}
             className="w-full sm:flex-1 p-3 border rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e] h-12"
           >
@@ -117,7 +124,7 @@ export default function SeleccionarProyectoModal() {
         </div>
       </div>
 
-      {/* INFO SELECCIONADA */}
+      {/* INFO SELECCIONADA ES MOSTRADA*/}
       {empresaSeleccionada && proyectoSeleccionado && (
         <div className="mt-4 p-4 bg-gray-100 rounded">
           <p>
@@ -129,7 +136,7 @@ export default function SeleccionarProyectoModal() {
         </div>
       )}
 
-      {/* MODAL */}
+      {/* ENSEÑAMOS MODAL Y LO VISUAL PARA EL USUARIO */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-80 shadow-lg">

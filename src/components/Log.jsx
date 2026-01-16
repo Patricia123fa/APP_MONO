@@ -1,14 +1,14 @@
 import React, { useState } from "react"
-
+//MIESTRA SI EL USUARO ESTÁ AUTENTIFICADO O NO. SETPASSWORD Y SETERROR GUARDAN LA INFO DE LA CONTRASEÑA Y SI ES UN ERROR
 export const Log = ({ setIsAuth }) => {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
 //LOG CONTRASEÑA DE PRUEBA
   const PASSWORD_CORRECTA = "1234" 
-
+//EVITA QUE EL FORMULARIO RECARGUE LA PÁGINA
   const handleSubmit = (e) => {
     e.preventDefault()
-
+//COMPARACIÓN DE CONTRASEÑAS. SI ES VERDADERA SE LLAMA A USESTATE. LO MISMO CON ERROR
     if (password === PASSWORD_CORRECTA) {
       setIsAuth(true)
     } else {
@@ -26,7 +26,7 @@ export const Log = ({ setIsAuth }) => {
             Introduce contraseña para acceder
           </p>
         </div>
-
+    {/*SE EJECUTA LA FUNCIÓN ANTERIOR*/}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-black">
@@ -35,6 +35,7 @@ export const Log = ({ setIsAuth }) => {
             <div className="mt-2">
               <input
                 type="password"
+                //EL VALOR DE LA CONTRASEÑA VIENE DEL ESTADO ANTERIOR.
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="block w-full rounded-md bg-white px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#e4201e]"
@@ -43,11 +44,11 @@ export const Log = ({ setIsAuth }) => {
               />
             </div>
           </div>
-
+        {/*SI ERROR TIENE CONTENIDO SE MUESTRA LLAMANDO AL ESTADO ANTERIOR*/}
           {error && (
             <p className="text-red-600 text-sm text-center">{error}</p>
           )}
-
+        {/*BOTÓN DE ENVÍO*/}
           <button
             type="submit"
             className="flex w-full justify-center rounded-md bg-gray-500 px-3 py-2 text-sm font-semibold text-white hover:bg-[#e4201e]"

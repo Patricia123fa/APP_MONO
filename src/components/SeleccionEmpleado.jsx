@@ -12,11 +12,13 @@ export default function SeleccionarEmpleado() {
       </label>
       <select
         value={seleccionado}
+        //AL CAMBIAR SE ESTABLECE QUE EL VALOR ES EL EMPLEADO.
         onChange={(e) => setSeleccionado(e.target.value)}
         className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e]"
       >
         <option value="">-- Selecciona --</option>
         {empleados.map((emp) => (
+          //SE SACA EL NOMBRE DEL EMPLEADO
           <option key={emp.id} value={emp.name}>
             {emp.name}
           </option>
@@ -27,6 +29,7 @@ export default function SeleccionarEmpleado() {
         <div className="mt-4 flex items-center gap-3">
           <p className="text-gray-700 font-medium">{seleccionado}</p>
           <img
+          //SE BUSCA LA IMAGEN QUE CORRESPONDE AL EMPLEADO ANTERIORMENTE SELECCIONADO
             src={empleados.find((emp) => emp.name === seleccionado)?.image}
             alt={seleccionado}
             className="w-10 h-10 rounded-full object-cover"
