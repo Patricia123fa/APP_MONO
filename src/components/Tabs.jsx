@@ -7,7 +7,7 @@ export default function Tabs({ tabs }) {
   return (
     <div className="w-full">
       {/* MENÚ DE OPCIONES */}
-      <div className="flex bg-white/50 rounded-lg mb-4">
+      <div className="flex bg-white/50 rounded-lg mb-4 sm:max-w-4xl sm:mx-auto">
       {/* PARA CADA PESTAÑA OBTENEMOS EL OBJETO Y EL ÍNDICE */}
         {tabs.map((tab, index) => (
           <button

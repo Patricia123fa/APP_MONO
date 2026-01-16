@@ -36,7 +36,7 @@ export default function Calendario({ label = "Seleccionar fecha", onChange }) {
   //CONTENEDOR DEL CALENDARIO
   return (
     <div className="flex flex-col items-center justify-center p-4">
-      <div className="flex flex-col items-center bg-white/50 p-4 rounded-lg shadow-md w-full max-w-xs">
+      <div className="flex flex-col items-center bg-white/50 p-4 rounded-lg shadow-md w-full max-w-md mx-auto">
         <DatePicker
         //FUNCIÓN QUE SE EJECUTA AL SELECCIONAR UNA FECHA
           selected={startDate}

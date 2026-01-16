@@ -55,7 +55,7 @@ export default function SeleccionarProyectoModal() {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-8 p-6 bg-white/60 rounded-lg shadow-md">
+    <div className="max-w-md mx-auto mt-4 p-6 bg-white/60 rounded-lg shadow-md">
       {/* SELECCIÓN DE EMPRESA */}
       <div className="mb-6">
         <label className="block mb-2 font-semibold text-gray-700">
