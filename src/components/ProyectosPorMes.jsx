@@ -126,7 +126,7 @@ export default function ProyectosPorMes({ companiesData }) {
               ))}
             </div>
 
-            {/* DESKTOP TABLE */}
+            {/* TABLA */}
             <div className="hidden sm:block overflow-x-auto">
               <table className="min-w-full border-collapse">
                 <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">

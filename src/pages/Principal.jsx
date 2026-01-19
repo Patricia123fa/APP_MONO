@@ -9,7 +9,7 @@ import Tabs from "../components/Tabs" // asegurarse de que export default Tabs
 import { IntroHoras } from "./IntroHoras"
 import { Proyectos } from "./Proyectos"
 import { Gestionar } from "./Gestionar"
-import { Division } from "./Division"
+import Division  from "./Division"
 
 export const Principal = () => {
 

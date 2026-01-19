@@ -66,7 +66,7 @@ export default function ExportarDatos() {
   };
   //LOS BOTONES DE EXPORTACIÓN QUE ES LO QUE MOSTRAMOS AL USUARIO DE LA APP
   return (
-    <div className="max-w-md mx-auto p-4 bg-white/50 rounded-lg shadow-md text-center">
+    <div className="max-w-md mx-auto mt-4 p-4 bg-white/50 rounded-lg shadow-md text-center">
       <h2 className="font-semibold mb-2">Exportar datos</h2>
       <div className="flex gap-4 justify-center">
         {/*CADA BOTÓN LLAMA A LA FUNCION ANTERIOR QUE LE CORRESPONDE Y TIENE SUS CARACTERÍSTICAS*/}

@@ -39,7 +39,7 @@ export default function SelectorHoras15min() {
   };
   //MOSTRAMOS EL INPUT QUE AUMENTA Y DISMINUYE LAS HORAS
   return (
-    <div className="max-w-xs mx-auto mt-4 p-4 bg-white/50 rounded-lg shadow-md text-center">
+    <div className="max-w-md mx-auto mt-4 p-6 bg-white/60 rounded-lg shadow-md">
       <label className="block mb-2 font-semibold text-gray-700">Horas realizadas:</label>
 
       <div className="flex items-center justify-center gap-2">
