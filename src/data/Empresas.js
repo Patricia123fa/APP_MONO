@@ -1,4 +1,4 @@
-
+//SIMULACIÓN PARA LAS COMPAÑÍAS Y PROYECTOS VINCULADOS
 export const companies = [
   {
     id: 1,

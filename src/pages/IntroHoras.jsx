@@ -8,8 +8,9 @@
 export const IntroHoras = () => {
   return (
     <div className="bg-[#fdc436] min-h-screen">
-      {/* Contenedor blanco semi-transparente */}
+      {/* CONTENEDOR PARA LAS TARJETAS ANTERIORES */}
       <div className="bg-white/50 p-6 rounded-xl shadow-lg w-full sm:max-w-4xl sm:mx-auto">
+         <div className="text-black text-center font-bold">Introducir horas</div>
         <SeleccionarEmpleado />
         <SeleccionProyecto />
         <Calendario />

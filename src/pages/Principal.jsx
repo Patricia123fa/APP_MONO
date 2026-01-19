@@ -13,7 +13,7 @@ import { Division } from "./Division"
 
 export const Principal = () => {
 
-  // Definimos las pestañas
+  // DEFINIMOS CON QUÉ ENLAZA CADA PESTAÑA
   const tabsData = [
     { label: "Registro y resumen", content: <IntroHoras /> },
     { label: "Ver todos los proyectos", content: <Proyectos /> },

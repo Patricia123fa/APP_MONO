@@ -59,7 +59,7 @@ export default function SeleccionarProyectoModal() {
       {/* SELECCIÓN DE EMPRESA */}
       <div className="mb-6">
         <label className="block mb-2 font-semibold text-gray-700">
-          Selecciona una empresa:
+          Selecciona la empresa:
         </label>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <select

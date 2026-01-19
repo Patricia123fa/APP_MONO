@@ -15,7 +15,7 @@ import rober from '../assets/Rober.jpeg';
 import sandra from '../assets/Sandra.jpeg';
 import sara from '../assets/Sara.jpeg';
 import voby from '../assets/Voby.jpeg';
-
+//SIMULACIÓN DE LOS EMPLEADOS
 export const empleados = [
   { id: "1", name: "Alba", image: alba },
   { id: "2", name: "Buster", image: buster },

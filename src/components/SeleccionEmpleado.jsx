@@ -8,7 +8,7 @@ export default function SeleccionarEmpleado() {
   return (
     <div className="max-w-md mx-auto mt-8 p-4 bg-white/50 rounded-lg shadow-md">
       <label className="block mb-2 font-semibold text-gray-700">
-        Selecciona un trabajador:
+        Selecciona tu monognomo:
       </label>
       <select
         value={seleccionado}
