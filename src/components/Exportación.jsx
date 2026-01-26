@@ -1,81 +1,61 @@
-import { jsPDF } from "jspdf";
-import { empleados } from "../data/Trabajadores";
-import { companies } from "../data/Empresas";
+import React, { useState } from "react";
 
-export default function ExportarDatos() {
-//DATOS POR EMPRESA Y COMPAÑÍA (PRUEBA SIN BASE DE DATOS, NECESITAMOS LA BASE DE DATOS PARA MODIFICAR ESTO)
-//CREACIÓN DE LA LISTA O ARRAY DE DATOS.
-  const datos = [];
-  //AHORA HACEMOS QUE SE RECORRA POR CADA EMPLEADO, COMPAÑÍA Y PROYECTO, Y SE CREAN COMBINACIONES 
-  empleados.forEach(emp => {
-    companies.forEach(c => {
-      c.projects.forEach(p => {
-        datos.push({
-          empleado: emp.name,
-          empresa: c.name,
-          proyecto: p.name
-        });
-      });
-    });
-  });
+export default function Exportacion({ onExport }) {
+  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 7));
+  const [alcance, setAlcance] = useState("mes"); 
 
-  // SE EXPORTAN LOS DATOS CRUZADOS DE EMPLEADOS Y EMPRESAS
-  const exportCSV = () => {
-    //SE COMPRUEBA QUE HAYA DATOS. SI NO HAY DATOS NO HACE NADA
-    if (datos.length === 0) return;
-    //LA CLAVE ES EMPLEADO Y SE CREAN LAS RELACIONES.
-    const headers = Object.keys(datos[0]).join(",");
-    //CREA FILAS 
-    const rows = datos.map(row => Object.values(row).join(",")).join("\n");
-    //SE UNE TODO EN EL CSV Y SE CREA EL ARCHIVO DESCARGABLE
-    const csvContent = `${headers}\n${rows}`;
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    //GENERA UNA URL TEMPORAL PARA VISUALIZAR EL ARCHIVO
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "datos.csv");
-    link.click();
+  const handleExport = (formato) => {
+    onExport(formato, alcance, fecha);
   };
-  // FUNCIÓN PARA EXPORTAR EL PDF DE EMPRESAS Y EMPLEADOS
-  const exportPDF = () => {
-    //OTRA VEZ, SI NO HAY DATOS NO DEVUELVE NADA.
-    if (datos.length === 0) return;
-    //CREA EL DOCUMENTO PDF Y SUS CARACTERÍSTICAS
-    const doc = new jsPDF();
-    let y = 10;
-    const headers = Object.keys(datos[0]);
-    doc.setFontSize(12);
-    doc.text(headers.join(" | "), 10, y);
-    //GENERA ESPACIO DEBAJO
-    y += 8;
-    
-    datos.forEach(row => {
-      //POR CADA FILA DE LOS DATOS SE ESCRIBEN COMO TEXTO 
-      const values = Object.values(row).map(String);
-      doc.text(values.join(" | "), 10, y);
-      y += 8;
-      if (y > 280) { 
-        //AÑADIR PÁGINA SI SUPERA LOS ELEMENTOS.
-        doc.addPage();
-        y = 10;
-      }
-    });
-    //SE GUARDA EL PDF LLAMADO DATOS.
-    doc.save("datos.pdf");
-  };
-  //LOS BOTONES DE EXPORTACIÓN QUE ES LO QUE MOSTRAMOS AL USUARIO DE LA APP
+
   return (
-    <div className="max-w-md mx-auto mt-4 p-4 bg-white/50 rounded-lg shadow-md text-center">
-      <h2 className="font-semibold mb-2">Exportar datos</h2>
-      <div className="flex gap-4 justify-center">
-        {/*CADA BOTÓN LLAMA A LA FUNCION ANTERIOR QUE LE CORRESPONDE Y TIENE SUS CARACTERÍSTICAS*/}
-        <button onClick={exportCSV} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-[#e4201e]">
-          Exportar CSV
+    <div className="flex flex-col items-center gap-6 py-8 px-4 w-full max-w-sm mx-auto">
+      
+      {/* 1. SELECCIÓN DE ALCANCE - ADAPTADO A MÓVIL (MÁS ANCHO) */}
+      <div className="flex w-full bg-white/20 p-1 rounded-2xl border border-white/40 shadow-inner">
+        <button 
+          onClick={() => setAlcance("mes")}
+          className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${alcance === 'mes' ? 'bg-white text-gray-800 shadow-md scale-[1.02]' : 'text-gray-500 opacity-60'}`}
+        >
+          Mes Seleccionado
         </button>
-        <button onClick={exportPDF} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-[#e4201e]">
-          Exportar PDF
+        <button 
+          onClick={() => setAlcance("todo")}
+          className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${alcance === 'todo' ? 'bg-white text-gray-800 shadow-md scale-[1.02]' : 'text-gray-500 opacity-60'}`}
+        >
+          Todo el Histórico
         </button>
+      </div>
+
+      {/* 2. SELECTOR DE FECHA - DISEÑO MINIMALISTA */}
+      <div className={`flex flex-col items-center gap-1 transition-all duration-500 ${alcance === 'todo' ? 'h-0 opacity-0 overflow-hidden' : 'h-12 opacity-100'}`}>
+        <span className="text-[7px] font-black uppercase tracking-[0.4em] text-gray-500/80">Periodo</span>
+        <input 
+          type="month" 
+          value={fecha}
+          onChange={(e) => setFecha(e.target.value)}
+          className="bg-transparent text-gray-800 font-black uppercase text-sm tracking-[0.1em] text-center outline-none border-none focus:ring-0"
+        />
+      </div>
+
+      {/* 3. BOTONES DE FORMATO - EN COLUMNA PARA MÓVIL, FILA EN DESKTOP */}
+      <div className="flex flex-col sm:flex-row gap-3 w-full">
+        <button 
+          onClick={() => handleExport("pdf")}
+          className="flex-1 py-4 bg-white/60 backdrop-blur-md border border-white/80 text-gray-800 text-[10px] font-black rounded-2xl active:scale-95 transition-all uppercase tracking-[0.2em] shadow-sm flex items-center justify-center gap-2"
+        >
+          <span>📄</span> PDF
+        </button>
+        <button 
+          onClick={() => handleExport("csv")}
+          className="flex-1 py-4 bg-white/60 backdrop-blur-md border border-white/80 text-gray-800 text-[10px] font-black rounded-2xl active:scale-95 transition-all uppercase tracking-[0.2em] shadow-sm flex items-center justify-center gap-2"
+        >
+          <span>📊</span> CSV
+        </button>
+      </div>
+
+      <div className="flex flex-col items-center gap-1 mt-2">
+        <div className="h-px w-8 bg-gray-400/20"></div>
       </div>
     </div>
   );

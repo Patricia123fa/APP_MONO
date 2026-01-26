@@ -1,39 +1,55 @@
-import { useState } from "react";
-import { empleados } from "../data/Trabajadores.js"
+import React from "react";
 
-//SEGÚN LA LISTA DE EMPLEADOS EN "TRABAJADORES" SE SELECCIONAN CADA UNO DE ELLOS Y LO RELACIONA CON SU RESPECTIVA FOTO
-export default function SeleccionarEmpleado() {
-  const [seleccionado, setSeleccionado] = useState("");
+// 👇 CONFIGURACIÓN: Ruta de tus fotos en IONOS
+const URL_BASE = "https://registromono.monognomo.com/assets/"; 
+
+export default function SeleccionarEmpleado({ empleados = [], empleadoSeleccionado, setEmpleadoSeleccionado }) {
 
   return (
-    <div className="max-w-md mx-auto mt-8 p-4 bg-white/50 rounded-lg shadow-md">
-      <label className="block mb-2 font-semibold text-gray-700">
-        Selecciona tu monognomo:
+    <div className="mx-auto max-w-4xl rounded-xl bg-white/70 p-4 shadow">
+      <label className="block mb-2 font-semibold text-gray-700 uppercase text-[10px] tracking-wider">
+        Selecciona tu monognomo
       </label>
+      
       <select
-        value={seleccionado}
-        //AL CAMBIAR SE ESTABLECE QUE EL VALOR ES EL EMPLEADO.
-        onChange={(e) => setSeleccionado(e.target.value)}
-        className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e]"
+        value={empleadoSeleccionado ? empleadoSeleccionado.id : ""}
+        onChange={(e) => {
+            const id = e.target.value;
+            const usuarioReal = empleados.find(emp => emp.id == id);
+            setEmpleadoSeleccionado(usuarioReal);
+        }}
+        className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e] bg-white"
       >
-        <option value="">-- Selecciona --</option>
+        <option value="">-- ¿Quién eres? --</option>
+        
         {empleados.map((emp) => (
-          //SE SACA EL NOMBRE DEL EMPLEADO
-          <option key={emp.id} value={emp.name}>
+          <option key={emp.id} value={emp.id}>
             {emp.name}
           </option>
         ))}
       </select>
 
-      {seleccionado && (
-        <div className="mt-4 flex items-center gap-3">
-          <p className="text-gray-700 font-medium">{seleccionado}</p>
+      {/* ZONA DE FOTO */}
+      {empleadoSeleccionado && (
+        <div className="mt-4 flex flex-col items-center justify-center animate-fade-in">
+          
           <img
-          //SE BUSCA LA IMAGEN QUE CORRESPONDE AL EMPLEADO ANTERIORMENTE SELECCIONADO
-            src={empleados.find((emp) => emp.name === seleccionado)?.image}
-            alt={seleccionado}
-            className="w-10 h-10 rounded-full object-cover"
+            // 👇 AQUÍ ESTÁ EL CAMBIO: .replace(/ /g, '')
+            // Esto convierte "Maria C" en "MariaC" (quita el espacio)
+            src={`${URL_BASE}${empleadoSeleccionado.name.replace(/ /g, '')}.jpeg`} 
+            
+            onError={(e) => {
+                e.target.onerror = null; 
+                e.target.src = "https://via.placeholder.com/150?text=Sin+Foto";
+            }}
+
+            alt={empleadoSeleccionado.name}
+            className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg mb-2 bg-gray-200"
           />
+          
+          <p className="text-gray-800 font-bold text-xl mt-2">
+            ¡Hola, {empleadoSeleccionado.name}! 👋
+          </p>
         </div>
       )}
     </div>

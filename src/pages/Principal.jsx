@@ -1,13 +1,8 @@
 import { Header } from "../components/Header"
-import SeleccionEmpleado from "../components/SeleccionEmpleado"
-import SeleccionProyecto from "../components/SeleccionProyecto"
-import Calendario from "../components/Calendario"
-import SelectorHoras from "../components/SelectorHoras"
-import ExportarDatos from "../components/Exportación"
 import { Footer } from "../components/Footer"
-import Tabs from "../components/Tabs" // asegurarse de que export default Tabs
+import Tabs from "../components/Tabs"
 import { IntroHoras } from "./IntroHoras"
-import { Proyectos } from "./Proyectos"
+import  Proyectos  from "./Proyectos"
 import { Gestionar } from "./Gestionar"
 import Division  from "./Division"
 

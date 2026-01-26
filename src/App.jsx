@@ -1,18 +1,25 @@
 import { useState } from "react"
-import { Registro } from "./pages/Registro"
 import { Principal } from "./pages/Principal"
-
+import { Registro } from "./pages/Registro"
 
 function App() {
-  const [isAuth, setIsAuth] = useState(false)
-//SI LA CONTRASEÑA ES CORRECTA Y PASA A PANTALLA PRINCIPAL.
+  // 1. Inicializamos el estado consultando el localStorage
+  const [isAuth, setIsAuth] = useState(() => {
+    const savedAuth = localStorage.getItem("isAuth");
+    return savedAuth === "true"; // Retorna true si ya estaba guardado
+  });
+
   return (
     <>
-      {isAuth ? <Principal /> : <Registro setIsAuth={setIsAuth} />}
+      {isAuth ? (
+        <Principal setIsAuth={setIsAuth} /> 
+      ) : (
+        <Registro setIsAuth={setIsAuth} />
+      )}
     </>
   )
 }
 
-export default App
-
+// 2. Exportación obligatoria para que el proyecto cargue
+export default App;
 

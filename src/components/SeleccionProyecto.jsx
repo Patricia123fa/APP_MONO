@@ -1,179 +1,140 @@
-import { useState } from "react";
-import companiesData from "../data/Empresas";
+import React, { useState } from "react";
 
-export default function SeleccionarProyectoModal() {
-  //DATOS INICIALES 
-  const [companies, setCompanies] = useState(companiesData);
-  //GUARDA LOS VALORES
+export default function SeleccionProyecto({ proyectoSeleccionado, setProyectoSeleccionado, proyectos = [], alActualizarDatos }) {
   const [empresaSeleccionada, setEmpresaSeleccionada] = useState("");
-  const [proyectoSeleccionado, setProyectoSeleccionado] = useState("");
+  const [mostrandoFormNuevo, setMostrandoFormNuevo] = useState(false);
+  const [nuevoNombre, setNuevoNombre] = useState("");
+  const [cargando, setCargando] = useState(false);
 
-  // MODAL QUE SIRVE PARA MOSTRAR O NO MOSTRAR LOS PROYECTOS DE LA EMPRESA SELECCIONADA
-  const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState("");
-  const [inputValue, setInputValue] = useState("");
-
-  const empresa = companies.find(
-    (c) => c.id === parseInt(empresaSeleccionada)
+  const empresas = [...new Set(proyectos.map((p) => p.company || "Otros"))].sort();
+  const proyectosFiltrados = proyectos.filter(
+    (p) => (p.company || "Otros") === empresaSeleccionada
   );
-  //SI HAY EMPRESA, MUESTRA LOS PROYECTOS, SINO, NO MUESTRA NADA
-  const proyectos = empresa ? empresa.projects : [];
-  //GESTIONAR AÑADIR LA EMPRESA
-  const handleAdd = () => {
-    if (!inputValue.trim()) return;
 
-    if (modalType === "empresa") {
-      const nueva = {
-        id: Date.now(),
-        name: inputValue,
-        location: "",
-        industry: "",
-        projects: [],
-      };
-      //SE CREA LA EMPRESA Y SE AÑADE Y DESPUÉS LO MISMO CON LOS PROYECTOS.
-      setCompanies([...companies, nueva]);
-    } else if (modalType === "proyecto") {
-      //PRIMERO COMPRUEBA QUE HAY UNA EMPRESA RELACIONADA
-      if (!empresaSeleccionada) return;
-      setCompanies(
-        companies.map((c) =>
-          c.id === parseInt(empresaSeleccionada)
-            ? {
-                ...c,
-                projects: [
-                  ...c.projects,
-                  { id: Date.now(), name: inputValue, status: "Planeado" },
-                ],
-              }
-            : c
-        )
-      );
+  const handleGuardarNuevo = async () => {
+    if (!nuevoNombre.trim()) return;
+    setCargando(true);
+
+    const datos = {
+      action: 'add_custom',
+      tipo: 'proyecto', 
+      nombre: nuevoNombre,
+      empresa_relacionada: empresaSeleccionada
+    };
+
+    try {
+      const resp = await fetch("https://registromono.monognomo.com/api.php?action=add_custom", {
+        method: "POST",
+        body: JSON.stringify(datos)
+      });
+      
+      const res = await resp.json();
+      
+      if (res.success) {
+        // 1. Pedimos al padre que refresque la lista de proyectos
+        if (alActualizarDatos) {
+          await alActualizarDatos();
+        }
+
+        // 2. IMPORTANTE: En lugar de esperar, buscamos el nombre en la lista 
+        // que acaba de llegar o simplemente cerramos y dejamos que el usuario elija
+        setMostrandoFormNuevo(false);
+        setNuevoNombre("");
+        alert("✅ Proyecto creado. Ahora puedes seleccionarlo en la lista.");
+      } else {
+        alert("Error: " + (res.message || "No se pudo guardar"));
+      }
+    } catch (err) {
+      alert("Error de conexión con la API");
+    } finally {
+      setCargando(false);
     }
-    //CIERRA DEL MODAL
-    setInputValue("");
-    setShowModal(false);
   };
 
   return (
-    <div className="max-w-md mx-auto mt-4 p-6 bg-white/60 rounded-lg shadow-md">
-      {/* SELECCIÓN DE EMPRESA */}
-      <div className="mb-6">
-        <label className="block mb-2 font-semibold text-gray-700">
-          Selecciona la empresa:
-        </label>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+    <div className="mx-auto w-full max-w-4xl rounded-xl bg-white/70 p-4 shadow space-y-4">
+      
+      {/* SECTOR EMPRESA */}
+      <div className="w-full text-left">
+        <label className="block mb-2 font-semibold text-gray-700 uppercase text-[10px] tracking-wider">Empresa / Cliente</label>
+        <select
+          value={empresaSeleccionada}
+          onChange={(e) => {
+            setEmpresaSeleccionada(e.target.value);
+            setProyectoSeleccionado(null);
+            setMostrandoFormNuevo(false);
+          }}
+          className="w-full p-3 border-none rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-black outline-none text-sm"
+        >
+          <option value="">-- Selecciona Empresa --</option>
+          {empresas.map((emp) => (
+            <option key={emp} value={emp}>{emp}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* SECTOR PROYECTO */}
+      {empresaSeleccionada && (
+        <div className="space-y-3 w-full text-left">
+          <label className="block mb-1 font-semibold text-gray-700 uppercase text-[10px] tracking-wider">Proyecto</label>
           <select
-            value={empresaSeleccionada}
+            value={proyectoSeleccionado ? proyectoSeleccionado.id : ""}
             onChange={(e) => {
-              //EL VALOR CLAVE ES LA ID DE LA EMPRESA. SI CAMBIA, EL PROYECTO CAMBIA
-              setEmpresaSeleccionada(e.target.value);
-              setProyectoSeleccionado("");
+              if(e.target.value === "nuevo") {
+                setMostrandoFormNuevo(true);
+              } else {
+                const proy = proyectos.find((p) => p.id == e.target.value);
+                setProyectoSeleccionado(proy);
+                setMostrandoFormNuevo(false);
+              }
             }}
-            className="w-full sm:flex-1 p-3 border rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e] h-12"
+            className="w-full p-3 border-none rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-black outline-none text-sm"
           >
-            <option value="">-- Selecciona --</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+            <option value="">-- Selecciona Proyecto --</option>
+            {proyectosFiltrados.map((proy) => (
+              <option key={proy.id} value={proy.id}>{proy.name}</option>
             ))}
+            <option value="nuevo" className="text-blue-600 font-bold">+ AÑADIR NUEVO PROYECTO</option>
           </select>
-          <button
-            onClick={() => {
-              setModalType("empresa");
-              setShowModal(true);
-            }}
-            className="w-full sm:w-auto h-12 px-4 bg-gray-600 text-white rounded hover:bg-[#e4201e]"
-          >
-            Añadir
-          </button>
-        </div>
-      </div>
 
-      {/* SELECCIÓN DE PROYECTO */}
-      <div className="mb-6">
-        <label className="block mb-2 font-semibold text-gray-700">
-          Selecciona un proyecto:
-        </label>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <select
-            value={proyectoSeleccionado}
-            onChange={(e) => setProyectoSeleccionado(e.target.value)}
-            //SI NO HAY EMPRESA SELECCIONADA, PROYECTO DESHABILITADO. EL MODAL CAMBIA
-            disabled={!empresa}
-            className="w-full sm:flex-1 p-3 border rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e] h-12"
-          >
-            <option value="">-- Selecciona --</option>
-            {proyectos.map((p) => (
-              <option key={p.id} value={p.name}>
-                {p.name} ({p.status})
-              </option>
-            ))}
-          </select>
-          {empresaSeleccionada && (
-            <button
-              onClick={() => {
-                setModalType("proyecto");
-                setShowModal(true);
-              }}
-              className="w-full sm:w-auto h-12 px-4 bg-gray-600 text-white rounded hover:bg-[#e4201e]"
-            >
-              Añadir
-            </button>
+          {/* FORMULARIO AÑADIR */}
+          {mostrandoFormNuevo && (
+            <div className="p-4 bg-white rounded-xl border border-gray-100 shadow-md space-y-4">
+              <input 
+                type="text" 
+                value={nuevoNombre}
+                onChange={(e) => setNuevoNombre(e.target.value)}
+                className="w-full p-2 border-b-2 border-gray-200 outline-none focus:border-black"
+                placeholder="Nombre del nuevo proyecto..."
+                disabled={cargando}
+              />
+              <div className="flex gap-4 justify-end">
+                <button 
+                  onClick={() => { setMostrandoFormNuevo(false); setNuevoNombre(""); }} 
+                  className="text-gray-400 text-[10px] font-bold uppercase"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleGuardarNuevo} 
+                  disabled={cargando}
+                  className="bg-black text-white px-4 py-2 rounded-full font-bold uppercase text-[10px]"
+                >
+                  {cargando ? "Guardando..." : "Guardar"}
+                </button>
+              </div>
+            </div>
           )}
-        </div>
-      </div>
-
-      {/* INFO SELECCIONADA ES MOSTRADA*/}
-      {empresaSeleccionada && proyectoSeleccionado && (
-        <div className="mt-4 p-4 bg-gray-100 rounded">
-          <p>
-            <span className="font-semibold">Empresa:</span> {empresa.name}
-          </p>
-          <p>
-            <span className="font-semibold">Proyecto:</span> {proyectoSeleccionado}
-          </p>
         </div>
       )}
 
-      {/* ENSEÑAMOS MODAL Y LO VISUAL PARA EL USUARIO */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-80 shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">
-              {modalType === "empresa"
-                ? "Añadir nueva empresa"
-                : "Añadir nuevo proyecto"}
-            </h2>
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-              placeholder={
-                modalType === "empresa"
-                  ? "Nombre de la empresa"
-                  : "Nombre del proyecto"
-              }
-            />
-            <div className="flex flex-col sm:flex-row justify-end gap-3">
-              <button
-                onClick={() => setShowModal(false)}
-                className="w-full sm:w-auto px-4 py-2 rounded border hover:bg-gray-100"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleAdd}
-                className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Añadir
-              </button>
-            </div>
-          </div>
+      {/* RESUMEN FINAL */}
+      {proyectoSeleccionado && !mostrandoFormNuevo && (
+        <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
+           <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Seleccionado:</p>
+           <p className="text-sm font-black uppercase">{empresaSeleccionada} / {proyectoSeleccionado.name}</p>
         </div>
       )}
     </div>
   );
 }
-
