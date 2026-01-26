@@ -1,6 +1,6 @@
 import React from "react";
 
-// 👇 CONFIGURACIÓN: Ruta de tus fotos en IONOS
+// CONFIGURACIÓN DE LA RUTA PARA LAS IMÁGENES EN EL SERVIDOR
 const URL_BASE = "https://registromono.monognomo.com/assets/"; 
 
 export default function SeleccionarEmpleado({ empleados = [], empleadoSeleccionado, setEmpleadoSeleccionado }) {
@@ -34,8 +34,7 @@ export default function SeleccionarEmpleado({ empleados = [], empleadoSelecciona
         <div className="mt-4 flex flex-col items-center justify-center animate-fade-in">
           
           <img
-            // 👇 AQUÍ ESTÁ EL CAMBIO: .replace(/ /g, '')
-            // Esto convierte "Maria C" en "MariaC" (quita el espacio)
+            // ADAPTAMOS LOS NOMBRES A LOS NOMBRES DE LA BASE DE DATOS
             src={`${URL_BASE}${empleadoSeleccionado.name.replace(/ /g, '')}.jpeg`} 
             
             onError={(e) => {

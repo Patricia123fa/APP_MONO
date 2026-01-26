@@ -1,13 +1,13 @@
 import React, { useState } from "react"
 
 export const Log = ({ setIsAuth }) => {
+  //ESTADOS QUE CONTROLA
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [recordar, setRecordar] = useState(false)
   
-  // Estado para la visibilidad (false = ojos tapados / true = viendo)
+  //CONTRASEÑA VÁLIDA Y VARIABLES EN CASO DE SER INCORRECTA.
   const [verPassword, setVerPassword] = useState(false)
-
   const PASSWORD_CORRECTA = "Monoestratega8" 
 
   const handleSubmit = (e) => {
@@ -19,7 +19,7 @@ export const Log = ({ setIsAuth }) => {
       setError("❌ Contraseña incorrecta")
     }
   }
-
+  //CONTENEDOR DE ESTILOS PRINCIPAL
   return (
     <div className="min-h-screen flex items-start justify-center bg-[#fdc436]">
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm bg-white/50 backdrop-blur-md rounded-xl p-8 shadow-lg">
@@ -35,7 +35,7 @@ export const Log = ({ setIsAuth }) => {
             
             <div className="mt-2 relative">
               <input
-                // Si verPassword es false (mono tapado), el tipo es "password"
+                // SI VER CONTRASEÑA ES FALSE (MONO TAPADO), el tipo es "password"
                 type={verPassword ? "text" : "password"} 
                 value={password}
                 onChange={(e) => {

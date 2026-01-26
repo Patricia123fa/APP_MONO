@@ -1,15 +1,54 @@
-import React, { useState } from "react";
-
-export default function SeleccionProyecto({ proyectoSeleccionado, setProyectoSeleccionado, proyectos = [], alActualizarDatos }) {
-  const [empresaSeleccionada, setEmpresaSeleccionada] = useState("");
+import React, { useState, useMemo } from "react";
+//CONVIERTE LA FECHA DEL AÑO
+const formatearMesAnio = (mesAnioStr) => {
+  if (!mesAnioStr) return "";
+  // SI EL MARCADOR ES ESPECIAL SE ESCRIBE "SIEMPRE ACTIVO"
+  if (mesAnioStr === "9999-12") return "✨ Siempre Activo";
+  
+  const [year, month] = mesAnioStr.split("-");
+  const fecha = new Date(year, month - 1);
+  const nombreMes = new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(fecha);
+  return `${nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)} ${year}`;
+};
+//USA LOS DATOS DE LOS PROYECTOS
+export default function SeleccionProyecto({ 
+  proyectoSeleccionado, 
+  setProyectoSeleccionado, 
+  proyectos = [], 
+  empresaPadre, 
+  fechaPadre, // RECIBE EL MES DE INTROHORAS
+  alActualizarDatos 
+}) {
   const [mostrandoFormNuevo, setMostrandoFormNuevo] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [cargando, setCargando] = useState(false);
 
-  const empresas = [...new Set(proyectos.map((p) => p.company || "Otros"))].sort();
-  const proyectosFiltrados = proyectos.filter(
-    (p) => (p.company || "Otros") === empresaSeleccionada
-  );
+  // FILTRADO 
+  const proyectosFiltrados = useMemo(() => {
+    if (!empresaPadre || !fechaPadre) return [];
+    
+    const unicos = new Map();
+
+    proyectos.forEach(p => {
+      // NORMALIZAMOS EMPRESA
+      const empresaBD = (p.company || "Sin Empresa").trim();
+      const coincideEmpresa = empresaBD === empresaPadre.trim();
+      
+      // NORMALIZAMOS MES
+      const mesBD = String(p.month_key || "").trim();
+      const mesBuscado = String(fechaPadre).trim();
+      const coincideMes = mesBD === mesBuscado || mesBD === "9999-12";
+
+      if (coincideEmpresa && coincideMes) {
+        unicos.set(p.id, p);
+      }
+    });
+
+    // CONVERTIMOS EN ARRAY Y ORDENAMOS ALFABÉTICAMENTE
+    return Array.from(unicos.values()).sort((a, b) => 
+      a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
+    );
+  }, [empresaPadre, fechaPadre, proyectos]);
 
   const handleGuardarNuevo = async () => {
     if (!nuevoNombre.trim()) return;
@@ -19,120 +58,80 @@ export default function SeleccionProyecto({ proyectoSeleccionado, setProyectoSel
       action: 'add_custom',
       tipo: 'proyecto', 
       nombre: nuevoNombre,
-      empresa_relacionada: empresaSeleccionada
+      empresa_relacionada: empresaPadre,
+      month_key: fechaPadre 
     };
 
     try {
-      const resp = await fetch("https://registromono.monognomo.com/api.php?action=add_custom", {
+      const resp = await fetch(`https://registromono.monognomo.com/api.php?action=add_custom`, {
         method: "POST",
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(datos)
       });
-      
       const res = await resp.json();
-      
       if (res.success) {
-        // 1. Pedimos al padre que refresque la lista de proyectos
-        if (alActualizarDatos) {
-          await alActualizarDatos();
-        }
-
-        // 2. IMPORTANTE: En lugar de esperar, buscamos el nombre en la lista 
-        // que acaba de llegar o simplemente cerramos y dejamos que el usuario elija
+        if (alActualizarDatos) await alActualizarDatos();
         setMostrandoFormNuevo(false);
         setNuevoNombre("");
-        alert("✅ Proyecto creado. Ahora puedes seleccionarlo en la lista.");
-      } else {
-        alert("Error: " + (res.message || "No se pudo guardar"));
       }
     } catch (err) {
-      alert("Error de conexión con la API");
+      alert("Error de conexión");
     } finally {
       setCargando(false);
     }
   };
 
+  if (!empresaPadre) return null;
+//VISUAL
   return (
-    <div className="mx-auto w-full max-w-4xl rounded-xl bg-white/70 p-4 shadow space-y-4">
-      
-      {/* SECTOR EMPRESA */}
-      <div className="w-full text-left">
-        <label className="block mb-2 font-semibold text-gray-700 uppercase text-[10px] tracking-wider">Empresa / Cliente</label>
-        <select
-          value={empresaSeleccionada}
-          onChange={(e) => {
-            setEmpresaSeleccionada(e.target.value);
-            setProyectoSeleccionado(null);
-            setMostrandoFormNuevo(false);
-          }}
-          className="w-full p-3 border-none rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-black outline-none text-sm"
-        >
-          <option value="">-- Selecciona Empresa --</option>
-          {empresas.map((emp) => (
-            <option key={emp} value={emp}>{emp}</option>
-          ))}
-        </select>
+    <div className="mx-auto w-full max-w-4xl rounded-xl bg-white/70 p-4 shadow space-y-3 animate-in fade-in duration-300">
+      <div className="flex justify-between items-center px-1">
+        <label className="font-black text-gray-400 uppercase text-[9px] tracking-[0.2em]">
+          3. Proyectos de {empresaPadre} ({formatearMesAnio(fechaPadre)})
+        </label>
+        {proyectosFiltrados.length === 0 && (
+          <span className="text-[8px] font-bold text-red-500 uppercase bg-red-50 px-2 py-1 rounded animate-pulse">
+            Sin proyectos en {formatearMesAnio(fechaPadre)}
+          </span>
+        )}
       </div>
 
-      {/* SECTOR PROYECTO */}
-      {empresaSeleccionada && (
-        <div className="space-y-3 w-full text-left">
-          <label className="block mb-1 font-semibold text-gray-700 uppercase text-[10px] tracking-wider">Proyecto</label>
-          <select
-            value={proyectoSeleccionado ? proyectoSeleccionado.id : ""}
-            onChange={(e) => {
-              if(e.target.value === "nuevo") {
-                setMostrandoFormNuevo(true);
-              } else {
-                const proy = proyectos.find((p) => p.id == e.target.value);
-                setProyectoSeleccionado(proy);
-                setMostrandoFormNuevo(false);
-              }
-            }}
-            className="w-full p-3 border-none rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-black outline-none text-sm"
-          >
-            <option value="">-- Selecciona Proyecto --</option>
-            {proyectosFiltrados.map((proy) => (
-              <option key={proy.id} value={proy.id}>{proy.name}</option>
-            ))}
-            <option value="nuevo" className="text-blue-600 font-bold">+ AÑADIR NUEVO PROYECTO</option>
-          </select>
+      <select
+        value={proyectoSeleccionado ? proyectoSeleccionado.id : ""}
+        onChange={(e) => {
+          if (e.target.value === "nuevo") {
+            setMostrandoFormNuevo(true);
+          } else {
+            const proy = proyectosFiltrados.find((p) => p.id == e.target.value);
+            setProyectoSeleccionado(proy);
+            setMostrandoFormNuevo(false);
+          }
+        }}
+        className="w-full p-3.5 border-none rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-black outline-none text-sm font-bold text-gray-700 appearance-none"
+      >
+        <option value="">-- Elige Proyecto ({proyectosFiltrados.length} disponibles) --</option>
+        {proyectosFiltrados.map((proy) => (
+          <option key={proy.id} value={proy.id}>{proy.name}</option>
+        ))}
+        <option value="nuevo" className="text-blue-600 font-bold italic">+ AÑADIR NUEVO PROYECTO A ESTE MES</option>
+      </select>
 
-          {/* FORMULARIO AÑADIR */}
-          {mostrandoFormNuevo && (
-            <div className="p-4 bg-white rounded-xl border border-gray-100 shadow-md space-y-4">
-              <input 
-                type="text" 
-                value={nuevoNombre}
-                onChange={(e) => setNuevoNombre(e.target.value)}
-                className="w-full p-2 border-b-2 border-gray-200 outline-none focus:border-black"
-                placeholder="Nombre del nuevo proyecto..."
-                disabled={cargando}
-              />
-              <div className="flex gap-4 justify-end">
-                <button 
-                  onClick={() => { setMostrandoFormNuevo(false); setNuevoNombre(""); }} 
-                  className="text-gray-400 text-[10px] font-bold uppercase"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={handleGuardarNuevo} 
-                  disabled={cargando}
-                  className="bg-black text-white px-4 py-2 rounded-full font-bold uppercase text-[10px]"
-                >
-                  {cargando ? "Guardando..." : "Guardar"}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* RESUMEN FINAL */}
-      {proyectoSeleccionado && !mostrandoFormNuevo && (
-        <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
-           <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Seleccionado:</p>
-           <p className="text-sm font-black uppercase">{empresaSeleccionada} / {proyectoSeleccionado.name}</p>
+      {mostrandoFormNuevo && (
+        <div className="p-5 bg-white rounded-2xl border-2 border-dashed border-gray-200 shadow-inner space-y-4 animate-in zoom-in-95">
+          <input 
+            type="text" 
+            value={nuevoNombre}
+            onChange={(e) => setNuevoNombre(e.target.value)}
+            className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold outline-none"
+            placeholder="Nombre del nuevo proyecto..."
+            autoFocus
+          />
+          <div className="flex gap-3 justify-end">
+            <button onClick={() => setMostrandoFormNuevo(false)} className="text-gray-400 text-[10px] font-black uppercase tracking-wider">Cancelar</button>
+            <button onClick={handleGuardarNuevo} disabled={cargando} className="bg-black text-white px-6 py-2.5 rounded-xl font-black uppercase text-[10px]">
+              {cargando ? "Guardando..." : "Crear 🐵"}
+            </button>
+          </div>
         </div>
       )}
     </div>

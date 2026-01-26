@@ -1,10 +1,9 @@
 import React from "react";
 
-// AHORA RECIBE 'horas' Y 'setHoras' DEL PADRE (IntroHoras)
+//RECIBE HORAS
 export default function SelectorHoras15min({ horas, setHoras }) {
   
-  // Tu estado en el padre está en HORAS (ej: 1.5 horas), pero aquí trabajamos en MINUTOS (90 min).
-  // Hacemos la conversión al vuelo:
+  // SE HACE LA CONVERSIÓN
   const minutos = Math.round((horas || 0) * 60);
 
   // FUNCIÓN PARA MOSTRAR EL FORMATO DE LAS HORAS EN HH:MM
@@ -14,10 +13,10 @@ export default function SelectorHoras15min({ horas, setHoras }) {
     return `${h}:${m.toString().padStart(2, "0")}`;
   };
 
-  // AUMENTA O DISMINUYE (Convertimos de nuevo a Horas decimales para enviarlo al padre)
+  // AUMENTA O DISMINUYE
   const aumentar = () => {
     const nuevosMinutos = minutos + 15;
-    setHoras(nuevosMinutos / 60); // Enviamos horas (ej: 1.25)
+    setHoras(nuevosMinutos / 60); 
   };
 
   const disminuir = () => {
@@ -42,7 +41,7 @@ export default function SelectorHoras15min({ horas, setHoras }) {
       }
       
       const totalMinutos = h * 60 + m;
-      // Enviamos el dato al padre convertido a horas decimales
+      // ENVIAMOS EL DATO CONVERTIDO
       setHoras(totalMinutos >= 0 ? totalMinutos / 60 : 0);
     }
   };
@@ -61,7 +60,7 @@ export default function SelectorHoras15min({ horas, setHoras }) {
 
         <input
           type="text"
-          // Aquí mostramos el valor calculado desde las props
+          // MOSTRAMOS EL VALOR YA CALCULADO
           value={formatHoras(minutos)}
           onChange={handleChange}
           className="w-20 text-center border p-1 rounded focus:outline-none focus:ring-2 focus:ring-[#e4201e]"

@@ -34,7 +34,7 @@ export default function Exportacion({ onExport }) {
           type="month" 
           value={fecha}
           onChange={(e) => setFecha(e.target.value)}
-          className="bg-transparent text-gray-800 font-black uppercase text-sm tracking-[0.1em] text-center outline-none border-none focus:ring-0"
+          className="bg-transparent text-gray-800 font-black uppercase text-sm tracking-widest text-center outline-none border-none focus:ring-0"
         />
       </div>
 

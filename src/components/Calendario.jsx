@@ -2,8 +2,8 @@ import { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
+//DEFINIMOS EL COMPONENTE CALENDARIO
 export default function Calendario({ label = "Seleccionar fecha", selectedDate, setSelectedDate }) {
-  // Nota: He usado 'selectedDate' y 'setSelectedDate' para que conecte con tu IntroHoras
   const [weekOfYear, setWeekOfYear] = useState(null);
 
   // FUNCION PARA CALCULAR LA SEMANA DEL AÑO
@@ -24,31 +24,30 @@ export default function Calendario({ label = "Seleccionar fecha", selectedDate, 
     setWeekOfYear(week);
   };
 
+  //CONTENEDOR VISUAL
   return (
-    // 👇 Eliminado max-w-md para que ocupe todo el ancho del contenedor padre
     <div className="w-full rounded-xl bg-white/70 p-4 shadow text-center">
       <label className="block mb-2 font-semibold text-gray-700 uppercase text-[10px] tracking-wider">
         Fecha y Semana
       </label>
-
       <div className="w-full flex flex-col items-center">
         <DatePicker
           selected={selectedDate}
           onChange={handleChange}
-          // Formato en español
+          // FORMATO DE ESPAÑA
           dateFormat="dd/MM/yyyy"
           customInput={
-            // 👇 Botón centrado y con ancho completo
+            // BOTÓN CENTRADO
             <button className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-[#fdc436] text-white font-bold rounded-lg hover:bg-[#e4201e] transition-colors shadow-sm uppercase tracking-wider text-sm">
               {selectedDate ? selectedDate.toLocaleDateString() : label}
             </button>
           }
           calendarClassName="shadow-2xl rounded-lg border-none p-2"
-          popperPlacement="bottom" // Centrado debajo del botón
-          // Forzar que el popper se ajuste al ancho
+          popperPlacement="bottom" 
           portalId="root-portal"
         />
       
+    {/*MOSTRAR LA SEMANA Y FECHA SELECCIONADA*/}
         {selectedDate && (
           <div className="mt-3 text-center text-gray-700 text-sm animate-fade-in">
             <p className="font-medium text-gray-500 uppercase text-[10px] tracking-widest">Seleccionado</p>
