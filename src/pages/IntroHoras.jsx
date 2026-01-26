@@ -4,6 +4,7 @@ import SeleccionProyecto from "../components/SeleccionProyecto";
 import Exportacion from "../components/Exportación";
 import Calendario from "../components/Calendario";
 import SelectorHoras15min from "../components/SelectorHoras";
+import { Footer } from "../components/Footer";
 
 //SE ESTABLECE EL ORDEN DE PRIORIDAD DE LAS EMPRESAS
 const ORDEN_PRIORIDAD = [
@@ -215,9 +216,8 @@ export const IntroHoras = () => {
             </div>
           </div>
         )}
-
-        <Exportacion horasRegistradas={horasRegistradas} />
-      </div>
+        <Footer/>
+        </div>
     </div>
   );
 };

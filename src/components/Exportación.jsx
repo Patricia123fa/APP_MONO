@@ -1,61 +1,77 @@
 import React, { useState } from "react";
 
-export default function Exportacion({ onExport }) {
+export default function Exportacion({ onExport, tipo = "registro" }) {
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 7));
-  const [alcance, setAlcance] = useState("mes"); 
+  const [alcance, setAlcance] = useState("mes");
 
-  const handleExport = (formato) => {
-    onExport(formato, alcance, fecha);
+  const handleAction = (formato) => {
+    if (typeof onExport === "function") {
+      onExport(formato, alcance, fecha);
+    }
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 py-8 px-4 w-full max-w-sm mx-auto">
+    <div className="w-full bg-white/90 backdrop-blur-md border-y rounded-lg border-gray-100 py-1.5 px-3 shadow-sm sticky top-0 z-50">
+      <div className="max-w-5xl mx-auto flex items-center justify-between gap-1">
+          <span className="hidden xs:block text-[7px] font-black uppercase tracking-wider text-gray-400 ml-3 mr-2">
+        Exportar
+        </span>
+        {/* 1. SELECTOR ALCANCE (Le damos un pelín menos de padding para ganar espacio) */}
+        <div className="flex bg-gray-100/50 p-0.5 rounded-full shrink-0 border border-gray-200/50">
       
-      {/* 1. SELECCIÓN DE ALCANCE - ADAPTADO A MÓVIL (MÁS ANCHO) */}
-      <div className="flex w-full bg-white/20 p-1 rounded-2xl border border-white/40 shadow-inner">
-        <button 
-          onClick={() => setAlcance("mes")}
-          className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${alcance === 'mes' ? 'bg-white text-gray-800 shadow-md scale-[1.02]' : 'text-gray-500 opacity-60'}`}
-        >
-          Mes Seleccionado
-        </button>
-        <button 
-          onClick={() => setAlcance("todo")}
-          className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${alcance === 'todo' ? 'bg-white text-gray-800 shadow-md scale-[1.02]' : 'text-gray-500 opacity-60'}`}
-        >
-          Todo el Histórico
-        </button>
-      </div>
+          <button 
+            type="button"
+            onClick={() => setAlcance("mes")}
+            className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase transition-all ${alcance === 'mes' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'}`}
+          >
+            Mes
+          </button>
+          <button 
+            type="button"
+            onClick={() => setAlcance("todo")}
+            className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase transition-all ${alcance === 'todo' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'}`}
+          >
+            Todo
+          </button>
+        </div>
 
-      {/* 2. SELECTOR DE FECHA - DISEÑO MINIMALISTA */}
-      <div className={`flex flex-col items-center gap-1 transition-all duration-500 ${alcance === 'todo' ? 'h-0 opacity-0 overflow-hidden' : 'h-12 opacity-100'}`}>
-        <span className="text-[7px] font-black uppercase tracking-[0.4em] text-gray-500/80">Periodo</span>
-        <input 
-          type="month" 
-          value={fecha}
-          onChange={(e) => setFecha(e.target.value)}
-          className="bg-transparent text-gray-800 font-black uppercase text-sm tracking-widest text-center outline-none border-none focus:ring-0"
-        />
-      </div>
+        {/* 2. FECHA (Ahora con espacio flexible pero protegido) */}
+        {alcance === "mes" && (
+          <div className="relative flex-1 flex items-center justify-center min-w-20">
+            <div className="text-gray-800 font-black text-[10px] tracking-tight flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-xs">📅</span>
+              {fecha.split('-')[1]}/{fecha.split('-')[0].slice(2)}
+            </div>
+            <input 
+              type="month" 
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+          </div>
+        )}
 
-      {/* 3. BOTONES DE FORMATO - EN COLUMNA PARA MÓVIL, FILA EN DESKTOP */}
-      <div className="flex flex-col sm:flex-row gap-3 w-full">
-        <button 
-          onClick={() => handleExport("pdf")}
-          className="flex-1 py-4 bg-white/60 backdrop-blur-md border border-white/80 text-gray-800 text-[10px] font-black rounded-2xl active:scale-95 transition-all uppercase tracking-[0.2em] shadow-sm flex items-center justify-center gap-2"
-        >
-          <span>📄</span> PDF
-        </button>
-        <button 
-          onClick={() => handleExport("csv")}
-          className="flex-1 py-4 bg-white/60 backdrop-blur-md border border-white/80 text-gray-800 text-[10px] font-black rounded-2xl active:scale-95 transition-all uppercase tracking-[0.2em] shadow-sm flex items-center justify-center gap-2"
-        >
-          <span>📊</span> CSV
-        </button>
-      </div>
+        {/* 3. BOTONES (Iconos con padding ajustado) */}
+        <div className="flex items-center shrink-0">
+          <button 
+            type="button"
+            onClick={() => handleAction("pdf")}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-50 active:scale-90 transition-all text-base"
+          >
+            📄
+          </button>
+          
+          <div className="w-px h-3 bg-gray-200 mx-0.5"></div>
 
-      <div className="flex flex-col items-center gap-1 mt-2">
-        <div className="h-px w-8 bg-gray-400/20"></div>
+          <button 
+            type="button"
+            onClick={() => handleAction("csv")}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-50 active:scale-90 transition-all text-base"
+          >
+            📊
+          </button>
+        </div>
+
       </div>
     </div>
   );

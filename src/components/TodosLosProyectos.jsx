@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
+import Exportacion from '../components/Exportación';
 
 const URL_BASE_FOTOS = "https://registromono.monognomo.com/assets/";
 
-//CALCULA LA SEMANA DEL MES
+// --- UTILIDADES ---
 const getISOWeek = (dateString) => {
   if (!dateString) return null;
   const date = new Date(dateString);
@@ -17,13 +18,13 @@ const getISOWeek = (dateString) => {
   }
   return 1 + Math.ceil((firstThursday - target) / 604800000);
 };
-//NOMBRES
+
 const getNombreMes = (dateString) => {
   if (!dateString) return "";
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(date);
 };
-//GENERA UN COLOR POR CADA PROYECTO SIEMPRE ESTABLE
+
 const getProjectColor = (str) => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -33,7 +34,6 @@ const getProjectColor = (str) => {
   return `hsl(${h}, 40%, 94%)`; 
 };
 
-// TRADUCTOR DE DECIMALES A RELOJ 
 const formatDisplayTime = (val) => {
   const totalMinutes = Math.round(val * 60);
   const h = Math.floor(totalMinutes / 60);
@@ -41,7 +41,7 @@ const formatDisplayTime = (val) => {
   if (h === 0) return `${m} min`;
   return `${h}:${m.toString().padStart(2, '0')}h`;
 };
-//ORDEN DE PRIORIDAD DE LAS EMPRESAS Y LAS ORDENAMOS
+
 const ORDEN_PRIORIDAD = ["Monognomo", "Neozink", "Picofino", "Guardianes", "Escuela Energía", "Escuela Energia", "MANGO", "General"];
 
 const sortEmpresas = (a, b) => {
@@ -58,19 +58,16 @@ export default function TodosLosProyectos() {
   const [loading, setLoading] = useState(true);
   const [abiertos, setAbiertos] = useState({});
 
-  // FILTROS
   const [filtroEmpleado, setFiltroEmpleado] = useState("");
   const [filtroEmpresa, setFiltroEmpresa] = useState("");
   const [filtroProyecto, setFiltroProyecto] = useState("");
   const [fechaSeleccionada, setFechaSeleccionada] = useState("");
   const [modoMesCompleto, setModoMesCompleto] = useState(false);
 
-  // ESTADO PARA AÑADIR EN EL MODAL
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [newEntry, setNewEntry] = useState({ worker_id: "", hours: 0, date_work: new Date().toISOString().split('T')[0] });
 
-  //FETCH DE DATOS
   const fetchData = async () => {
     try {
       const [resData, resInit] = await Promise.all([
@@ -91,7 +88,139 @@ export default function TodosLosProyectos() {
 
   useEffect(() => { fetchData(); }, []);
 
-  //GESTIÓN DEL BORRADO
+ const handleExportarRegistro = (formato, alcance, fechaExport) => {
+    let filtrados = data;
+    let tituloPeriodo = "Historial Completo";
+
+    if (alcance === "mes") {
+        const mesAFiltrar = fechaExport || fechaSeleccionada;
+        if (!mesAFiltrar) return alert("🐵 Selecciona un mes.");
+        const mesID = mesAFiltrar.substring(0, 7);
+        filtrados = data.filter(r => r.date_work?.includes(mesID));
+        tituloPeriodo = getNombreMes(mesAFiltrar);
+    }
+
+    if (formato === "csv") {
+        // ... (Tu lógica de CSV Pro que ya funciona bien)
+        const headers = ["ID_MES", "SEMANA", "FECHA", "DIA", "EMPRESA", "PROYECTO", "TRABAJADOR", "HORAS", "RELOJ"];
+        const datosOrdenados = [...filtrados].sort((a, b) => new Date(a.date_work) - new Date(b.date_work));
+        const rows = datosOrdenados.map(r => {
+            const d = new Date(r.date_work);
+            const diaNombre = new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(d);
+            const clean = (t) => `"${(t || "").toString().replace(/;/g, ',').replace(/"/g, '""')}"`;
+            return [r.date_work.substring(0, 7), r.semanaReal || getISOWeek(r.date_work), r.date_work, diaNombre.toUpperCase(), clean(r.company), clean(r.name), clean(r.worker), r.hours.toString().replace('.', ','), formatDisplayTime(parseFloat(r.hours)).replace('h', '')];
+        });
+        const csvContent = "\ufeff" + [headers.join(";"), ...rows.map(e => e.join(";"))].join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `MONO_${tituloPeriodo.toUpperCase()}.csv`;
+        link.click();
+        return;
+    }
+
+    // --- LÓGICA PDF MEJORADA (EVITA BLOQUEOS Y SALTOS) ---
+    const agrupado = {};
+    filtrados.forEach(r => {
+        if (!agrupado[r.company]) agrupado[r.company] = {};
+        if (!agrupado[r.company][r.name]) agrupado[r.company][r.name] = {};
+        const sem = r.semanaReal || "S/S";
+        if (!agrupado[r.company][r.name][sem]) agrupado[r.company][r.name][sem] = [];
+        agrupado[r.company][r.name][sem].push(r);
+    });
+
+    const ventana = window.open('', '_blank');
+    if (!ventana) return alert("Bloqueador de ventanas activo 🐵");
+
+    ventana.document.write(`
+        <html>
+          <head>
+            <title>Reporte MonoGnomo</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+              @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
+              body { font-family: 'Outfit', sans-serif; -webkit-print-color-adjust: exact; padding: 40px; }
+              .page-break { page-break-before: always; }
+              .no-break { page-break-inside: avoid; margin-bottom: 20px; }
+              table { width: 100%; border-collapse: collapse; }
+              @media print { 
+                body { padding: 0; margin: 0; }
+                .no-print { display: none; }
+              }
+            </style>
+          </head>
+          <body class="bg-white text-slate-800">
+            <div class="flex justify-between items-center mb-10 border-b border-slate-100 pb-6">
+              <div class="flex items-center gap-3 text-left">
+                <span class="text-4xl text-left">🐵</span>
+                <div class="text-left">
+                  <h1 class="text-2xl font-black tracking-tighter text-slate-900 text-left">MonoGnomo</h1>
+                  <p class="text-[8px] font-black uppercase tracking-[0.4em] text-yellow-500 text-left">Timesheet</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="text-[14px] font-bold text-slate-700 capitalize">${tituloPeriodo}</p>
+              </div>
+            </div>
+
+            ${Object.keys(agrupado).sort(sortEmpresas).map((empresa, index) => `
+              <div class="no-break text-left">
+                <h2 class="inline-block bg-slate-50 text-slate-700 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-100 mb-6 text-left">
+                  ${empresa}
+                </h2>
+
+                ${Object.entries(agrupado[empresa]).map(([proyName, semanas]) => {
+                  const totalProyecto = Object.values(semanas).flat().reduce((acc, curr) => acc + parseFloat(curr.hours), 0);
+                  return `
+                    <div class="mb-8 text-left border-l border-slate-50 pl-4">
+                      <div class="flex justify-between items-center mb-4 text-left">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">${proyName}</h3>
+                        <span class="text-[10px] font-black text-slate-900">${formatDisplayTime(totalProyecto)}</span>
+                      </div>
+                      
+                      ${Object.entries(semanas).sort((a,b) => a[0] - b[0]).map(([numSem, registros]) => `
+                        <div class="mb-4 text-left">
+                          <p class="text-[8px] font-black text-slate-300 uppercase mb-2">Semana ${numSem}</p>
+                          <table class="text-left">
+                            <tbody>
+                              ${registros.sort((a,b) => new Date(a.date_work) - new Date(b.date_work)).map(reg => `
+                                <tr class="text-[10px] text-slate-600 border-b border-slate-50/50">
+                                  <td class="py-1 w-24">${new Date(reg.date_work).toLocaleDateString('es-ES', {day: 'numeric', month: 'short'})}</td>
+                                  <td class="py-1 font-bold text-slate-700">${reg.worker}</td>
+                                  <td class="py-1 text-right font-black text-slate-900">${formatDisplayTime(parseFloat(reg.hours))}</td>
+                                </tr>
+                              `).join('')}
+                            </tbody>
+                          </table>
+                        </div>
+                      `).join('')}
+                    </div>
+                  `}).join('')}
+              </div>
+            `).join('')}
+
+            <div class="mt-10 pt-6 border-t border-slate-100 flex justify-between items-center">
+              <p class="text-[9px] font-bold text-slate-300 uppercase tracking-widest text-left font-black italic">Total Report</p>
+              <p class="text-4xl font-black text-slate-900 tracking-tighter text-right">
+                ${formatDisplayTime(filtrados.reduce((acc, curr) => acc + parseFloat(curr.hours), 0))}
+              </p>
+            </div>
+
+            <script>
+              // Ejecución inmediata del print al cargar Tailwind
+              window.addEventListener('load', () => {
+                setTimeout(() => {
+                  window.print();
+                  window.close();
+                }, 500);
+              });
+            </script>
+          </body>
+        </html>
+    `);
+    ventana.document.close();
+};
   const handleBorrar = async (id) => {
     if (!window.confirm("¿Borrar este registro?")) return;
     try {
@@ -100,7 +229,6 @@ export default function TodosLosProyectos() {
     } catch (err) { alert("Error al borrar"); }
   };
 
-  //GESTIÓN DEL EDITADO
   const handleEditar = async (reg) => {
     const nuevaFecha = window.prompt(`Editar fecha (AAAA-MM-DD):`, reg.date_work);
     if (nuevaFecha === null) return;
@@ -112,7 +240,7 @@ export default function TodosLosProyectos() {
       } catch (err) { alert("Error al editar"); }
     }
   };
- //GESTIÓN DE AÑADIR HORAS
+
   const handleAddHours = async (e) => {
     e.preventDefault();
     if (!newEntry.worker_id || newEntry.hours <= 0) return alert("Selecciona quién eres y añade tiempo 🐵");
@@ -138,7 +266,7 @@ export default function TodosLosProyectos() {
   const adjustHours = (val) => {
     setNewEntry(prev => ({ ...prev, hours: Math.max(0, parseFloat((prev.hours + val).toFixed(2))) }));
   };
-  //EL FILTRADO FINAL QUE APLICA FILTROS Y AGRUPA LOS DATOS
+
   const filtradoFinal = useMemo(() => {
     let res = data;
     if (filtroEmpleado) res = res.filter(r => r.worker === filtroEmpleado);
@@ -168,7 +296,6 @@ export default function TodosLosProyectos() {
     return Object.values(agrupado).sort((a, b) => sortEmpresas(a.name, b.name));
   }, [data, filtroEmpleado, filtroEmpresa, filtroProyecto, fechaSeleccionada, modoMesCompleto]);
 
-  //SUMA DEL DESPLEGABLE QUE SALE AL SELECCIONAR PERSONA Y FECHA (SEMANA O MES)
   const totalSumaFlotante = useMemo(() => {
     if (!filtroEmpleado || !fechaSeleccionada) return null;
     const mesID = fechaSeleccionada.substring(0, 7);
@@ -181,8 +308,16 @@ export default function TodosLosProyectos() {
 
   return (
     <div className="w-full max-w-5xl mx-auto px-4 pb-20 pt-0 bg-transparent min-h-screen font-sans text-gray-700 text-left">
-      <h1 className="text-gray-700 text-center mb-6 font-bold text-xl uppercase tracking-tight">VER TODOS LOS PROYECTOS</h1>
-     
+      <h1 className="text-gray-700 text-center mb-4 font-bold text-xl uppercase tracking-tight">VER TODOS LOS PROYECTOS</h1>
+      
+      {/* EXPORTACIÓN CORREGIDA */}
+      <div className="flex justify-center mb-6 scale-[0.8] origin-top">
+         <Exportacion 
+           tipo="registro" 
+           onExport={handleExportarRegistro} 
+         />
+      </div>
+
       {/* FILTROS */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
@@ -292,7 +427,7 @@ export default function TodosLosProyectos() {
         ))}
       </div>
 
-      {/* DESPLEGABLE PARA LA SUMA TOTAL */}
+      {/* PÍLDORA FLOTANTE */}
       {totalSumaFlotante !== null && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-100 animate-in slide-in-from-bottom-10">
           <div className="bg-white/95 backdrop-blur-md text-gray-800 px-6 py-2.5 rounded-2xl shadow-lg flex items-center gap-4 border border-gray-200">
@@ -305,7 +440,7 @@ export default function TodosLosProyectos() {
         </div>
       )}
 
-      {/* MODAL PARA AÑADIR A REGISTROS NUEVOS */}
+      {/* MODAL PARA AÑADIR */}
       {showAddModal && (
         <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-4xl p-8 w-full max-w-sm shadow-2xl animate-in zoom-in-95">
