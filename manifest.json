@@ -1,0 +1,20 @@
+{
+  "short_name": "MonoGnomo",
+  "name": "MonoGnomo Registro",
+  "icons": [
+    {
+      "src": "https://registromono.monognomo.com/assets/logo_mono.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://registromono.monognomo.com/assets/logo_mono.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#fdc436",
+  "background_color": "#ffffff"
+}

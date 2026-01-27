@@ -1,25 +1,45 @@
-import { Header } from '../components/Header'
+import { useState, useEffect } from "react";
 import { Footer } from '../components/Footer'
 import TodosLosProyectos from '../components/TodosLosProyectos'
-import { companies } from "../data/Empresas";
 
 export default function Proyectos() {
+  const [proyectos, setProyectos] = useState([]);
+  const [cargando, setCargando] = useState(true);
+
+  const cargarDatos = () => {
+    fetch("https://registromono.monognomo.com/api.php?action=get_initial_data")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.proyectos) {
+          setProyectos(data.proyectos);
+        }
+      })
+      .catch(err => console.error("Error cargando proyectos:", err))
+      .finally(() => setCargando(false));
+  };
+
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
   return (
-    // Quitamos el padding lateral solo en móvil (p-0) y lo restauramos en sm (sm:p-4)
-    <div className="bg-[#fdc436] min-h-screen p-0 sm:p-4 items-center">
-      
-      {/* CONTENEDOR PRINCIPAL:
-          - En móvil (por defecto): Sin fondo, sin bordes, sin sombras, ancho total.
-          - En sm+: Restauramos EXACTAMENTE tus clases originales.
-      */}
+    <div className="bg-[#fdc436] min-h-screen p-0 sm:p-4">
       <div className="w-full space-y-6 bg-transparent sm:bg-white/50 sm:p-6 sm:rounded-xl sm:shadow-lg sm:max-w-4xl sm:mx-auto">
         
-        <TodosLosProyectos companiesData={companies} />
+        {cargando ? (
+          <div className="text-center p-10 font-black uppercase text-xs tracking-widest animate-pulse">
+            Cargando proyectos... 🐒
+          </div>
+        ) : (
+          /* PASAMOS 'proyectos' como 'projects' */
+          <TodosLosProyectos 
+            projects={proyectos} 
+            alActualizar={cargarDatos} 
+          />
+        )}
         
       </div>
-
-      {/* Este párrafo se mantiene igual, pero podrías querer ocultarlo en móvil si estorba */}
-      <p className="hidden sm:block p-4 text-gray-700"></p>
+      <Footer />
     </div>
   )
 }

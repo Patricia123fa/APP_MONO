@@ -64,7 +64,7 @@ export default function SeleccionProyecto({
 
     if (duplicadoExistente) {
       const confirmar = window.confirm(
-        `⚠️ ¡ATENCIÓN MONO! ⚠️\n\nEste proyecto se parece mucho a: "${duplicadoExistente.name.toUpperCase()}"\n\n¿Estás seguro de que no es el mismo?`
+        `⚠️ ¡ATENCIÓN! ⚠️\n\nEste proyecto se parece mucho a: "${duplicadoExistente.name.toUpperCase()}"\n\n¿Estás seguro de que no es el mismo?`
       );
       if (!confirmar) return; // Si cancela, no guarda
     }
