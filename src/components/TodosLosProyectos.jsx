@@ -42,7 +42,18 @@ const formatDisplayTime = (val) => {
   return `${h}:${m.toString().padStart(2, '0')}h`;
 };
 
-const ORDEN_PRIORIDAD = ["Monognomo", "Neozink", "Picofino", "Guardianes", "Escuela Energía", "Escuela Energia", "MANGO", "General"];
+const ORDEN_PRIORIDAD = [
+  "Monognomo", 
+  "Neozink", 
+  "Picofino", 
+  "Yurmuvi",
+  "Guardianes", 
+  "Escuela Energía", 
+  "Escuela Energia", 
+  "MANGO", 
+  "Castrillo2",
+  "General"
+];
 
 const sortEmpresas = (a, b) => {
   let idxA = ORDEN_PRIORIDAD.indexOf(a);
@@ -54,6 +65,7 @@ const sortEmpresas = (a, b) => {
 
 export default function TodosLosProyectos() {
   const [data, setData] = useState([]);
+  const [proyectosMaestros, setProyectosMaestros] = useState([]); // <-- PARA FILTRO DINÁMICO
   const [workersList, setWorkersList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [abiertos, setAbiertos] = useState({});
@@ -81,6 +93,7 @@ export default function TodosLosProyectos() {
       }
       if (initData.success) {
         setWorkersList(initData.trabajadores);
+        setProyectosMaestros(initData.proyectos); // <-- GUARDAMOS LA LISTA MAESTRA
       }
     } catch (err) { console.error(err); } 
     finally { setLoading(false); }
@@ -88,7 +101,18 @@ export default function TodosLosProyectos() {
 
   useEffect(() => { fetchData(); }, []);
 
- const handleExportarRegistro = (formato, alcance, fechaExport) => {
+  // --- ARREGLO DE KEYS DUPLICADAS Y FILTRO DINÁMICO ---
+  const proyectosDisponiblesEnFiltro = useMemo(() => {
+    // Si hay empresa elegida, filtramos de la maestra, si no, de los que tienen datos
+    const listaBase = filtroEmpresa 
+      ? proyectosMaestros.filter(p => p.company === filtroEmpresa).map(p => p.name)
+      : data.map(r => r.name);
+
+    // Quitamos duplicados para evitar el error de consola y ordenamos
+    return [...new Set(listaBase)].sort();
+  }, [filtroEmpresa, proyectosMaestros, data]);
+
+  const handleExportarRegistro = (formato, alcance, fechaExport) => {
     let filtrados = data;
     let tituloPeriodo = "Historial Completo";
 
@@ -101,7 +125,6 @@ export default function TodosLosProyectos() {
     }
 
     if (formato === "csv") {
-        // ... (Tu lógica de CSV Pro que ya funciona bien)
         const headers = ["ID_MES", "SEMANA", "FECHA", "DIA", "EMPRESA", "PROYECTO", "TRABAJADOR", "HORAS", "RELOJ"];
         const datosOrdenados = [...filtrados].sort((a, b) => new Date(a.date_work) - new Date(b.date_work));
         const rows = datosOrdenados.map(r => {
@@ -120,7 +143,6 @@ export default function TodosLosProyectos() {
         return;
     }
 
-    // --- LÓGICA PDF MEJORADA (EVITA BLOQUEOS Y SALTOS) ---
     const agrupado = {};
     filtrados.forEach(r => {
         if (!agrupado[r.company]) agrupado[r.company] = {};
@@ -141,13 +163,8 @@ export default function TodosLosProyectos() {
             <style>
               @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
               body { font-family: 'Outfit', sans-serif; -webkit-print-color-adjust: exact; padding: 40px; }
-              .page-break { page-break-before: always; }
-              .no-break { page-break-inside: avoid; margin-bottom: 20px; }
               table { width: 100%; border-collapse: collapse; }
-              @media print { 
-                body { padding: 0; margin: 0; }
-                .no-print { display: none; }
-              }
+              @media print { .no-print { display: none; } }
             </style>
           </head>
           <body class="bg-white text-slate-800">
@@ -163,13 +180,11 @@ export default function TodosLosProyectos() {
                 <p class="text-[14px] font-bold text-slate-700 capitalize">${tituloPeriodo}</p>
               </div>
             </div>
-
-            ${Object.keys(agrupado).sort(sortEmpresas).map((empresa, index) => `
-              <div class="no-break text-left">
+            ${Object.keys(agrupado).sort(sortEmpresas).map(empresa => `
+              <div class="mb-10 text-left">
                 <h2 class="inline-block bg-slate-50 text-slate-700 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-100 mb-6 text-left">
                   ${empresa}
                 </h2>
-
                 ${Object.entries(agrupado[empresa]).map(([proyName, semanas]) => {
                   const totalProyecto = Object.values(semanas).flat().reduce((acc, curr) => acc + parseFloat(curr.hours), 0);
                   return `
@@ -178,7 +193,6 @@ export default function TodosLosProyectos() {
                         <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">${proyName}</h3>
                         <span class="text-[10px] font-black text-slate-900">${formatDisplayTime(totalProyecto)}</span>
                       </div>
-                      
                       ${Object.entries(semanas).sort((a,b) => a[0] - b[0]).map(([numSem, registros]) => `
                         <div class="mb-4 text-left">
                           <p class="text-[8px] font-black text-slate-300 uppercase mb-2">Semana ${numSem}</p>
@@ -199,28 +213,13 @@ export default function TodosLosProyectos() {
                   `}).join('')}
               </div>
             `).join('')}
-
-            <div class="mt-10 pt-6 border-t border-slate-100 flex justify-between items-center">
-              <p class="text-[9px] text-slate-300 uppercase tracking-widest text-left font-black italic">Total Report</p>
-              <p class="text-4xl font-black text-slate-900 tracking-tighter text-right">
-                ${formatDisplayTime(filtrados.reduce((acc, curr) => acc + parseFloat(curr.hours), 0))}
-              </p>
-            </div>
-
-            <script>
-              // Ejecución inmediata del print al cargar Tailwind
-              window.addEventListener('load', () => {
-                setTimeout(() => {
-                  window.print();
-                  window.close();
-                }, 500);
-              });
-            </script>
+            <script>window.print();</script>
           </body>
         </html>
     `);
     ventana.document.close();
-};
+  };
+
   const handleBorrar = async (id) => {
     if (!window.confirm("¿Borrar este registro?")) return;
     try {
@@ -310,28 +309,25 @@ export default function TodosLosProyectos() {
     <div className="w-full max-w-5xl mx-auto px-4 pb-20 pt-0 bg-transparent min-h-screen font-sans text-gray-700 text-left">
       <h1 className="text-gray-700 text-center mb-4 font-bold text-xl uppercase tracking-tight">VER TODOS LOS PROYECTOS</h1>
       
-      {/* EXPORTACIÓN CORREGIDA */}
       <div className="flex justify-center mb-6 scale-[0.8] origin-top">
-         <Exportacion 
-           tipo="registro" 
-           onExport={handleExportarRegistro} 
-         />
+         <Exportacion tipo="registro" onExport={handleExportarRegistro} />
       </div>
 
-      {/* FILTROS */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
           <select value={filtroEmpleado} onChange={e => setFiltroEmpleado(e.target.value)} className="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold outline-none">
             <option value="">🐵 ¿Quién eres?</option>
             {workersList.map(n => <option key={n.id} value={n.name}>{n.name}</option>)}
           </select>
-          <select value={filtroEmpresa} onChange={e => setFiltroEmpresa(e.target.value)} className="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold outline-none">
+          
+          <select value={filtroEmpresa} onChange={e => {setFiltroEmpresa(e.target.value); setFiltroProyecto("");}} className="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold outline-none">
             <option value="">Empresa</option>
-            {[...new Set(data.map(r => r.company))].sort(sortEmpresas).map(e => <option key={e} value={e}>{e}</option>)}
+            {ORDEN_PRIORIDAD.map(e => <option key={e} value={e}>{e}</option>)}
           </select>
+
           <select value={filtroProyecto} onChange={e => setFiltroProyecto(e.target.value)} className="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold outline-none">
             <option value="">Proyecto</option>
-            {[...new Set(data.map(r => r.name))].sort().map(p => <option key={p} value={p}>{p}</option>)}
+            {proyectosDisponiblesEnFiltro.map(p => <option key={`opt-${p}`} value={p}>{p}</option>)}
           </select>
 
           <div className="flex gap-2">
@@ -359,7 +355,6 @@ export default function TodosLosProyectos() {
         )}
       </div>
 
-      {/* RESULTADOS */}
       <div className="space-y-10">
         {filtradoFinal.map((emp) => (
           <div key={emp.name} className="space-y-4">
@@ -382,7 +377,7 @@ export default function TodosLosProyectos() {
                       const collapseKey = `${p.name}-${nom}`;
                       return (
                         <div key={nom}>
-                          <div onClick={() => setAbiertos(prev => ({...prev, [collapseKey]: !prev[collapseKey]}))} className="px-5 py-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors">
+                          <div onClick={() => setAbiertos(prev => ({...prev, [collapseKey]: !prev[collapseKey]}))} className="px-5 py-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors text-left">
                             <div className="flex items-center gap-3">
                               <img src={`${URL_BASE_FOTOS}${nom.replace(/ /g, '')}.jpeg`} onError={e => e.target.src=`https://ui-avatars.com/api/?name=${nom}&background=random&color=fff`} className="w-9 h-9 rounded-xl border border-gray-100 object-cover" />
                               <span className="text-xs font-bold text-gray-700 uppercase">{nom}</span>
@@ -397,7 +392,7 @@ export default function TodosLosProyectos() {
                                     <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Semana {numSem}</span>
                                     <span className="text-[9px] font-bold text-gray-300">{formatDisplayTime(det.totalSemana)}</span>
                                   </div>
-                                  <div className="grid grid-cols-1 gap-1.5">
+                                  <div className="grid grid-cols-1 gap-1.5 text-left">
                                     {det.entradas.map((entry, idx) => (
                                       <div key={idx} className="flex justify-between items-center bg-white px-4 py-3 rounded-xl border border-gray-100 shadow-sm">
                                         <div className="flex flex-col text-left leading-tight">
@@ -427,9 +422,8 @@ export default function TodosLosProyectos() {
         ))}
       </div>
 
-      {/* PÍLDORA FLOTANTE */}
       {totalSumaFlotante !== null && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-100 animate-in slide-in-from-bottom-10">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-100 animate-in slide-in-from-bottom-10 text-left">
           <div className="bg-white/95 backdrop-blur-md text-gray-800 px-6 py-2.5 rounded-2xl shadow-lg flex items-center gap-4 border border-gray-200">
             <div className="flex flex-col pr-4 border-r border-gray-200 leading-none">
               <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">{modoMesCompleto ? "Total Mes" : `Semana ${getISOWeek(fechaSeleccionada)}`}</span>
@@ -440,9 +434,8 @@ export default function TodosLosProyectos() {
         </div>
       )}
 
-      {/* MODAL PARA AÑADIR */}
       {showAddModal && (
-        <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-left">
           <div className="bg-white rounded-4xl p-8 w-full max-w-sm shadow-2xl animate-in zoom-in-95">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-base font-black uppercase text-gray-800 tracking-widest leading-none">Registrar Tiempo 🐵</h2>

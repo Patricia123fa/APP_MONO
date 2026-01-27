@@ -60,38 +60,61 @@ const Division = () => {
     } catch (err) { alert("Error de conexión"); }
   };
 
-  const { gruposPorEmpresa, filtradosParaExportar } = useMemo(() => {
-    const filtrados = eventos.filter(ev => {
-      // BLINDAJE: Si el evento no tiene fecha (ej. datos huerfanos), lo saltamos
-      if (!ev.event_date) return false;
+ const { gruposPorEmpresa, filtradosParaExportar } = useMemo(() => {
+  // 1. Lista de prioridad actualizada con todas tus empresas detectadas
+  const ORDEN_PRIORIDAD_EXTENDIDO = [
+    "Monognomo", "Neozink", "Picofino", "Yurmuvi", "Guardianes", 
+    "Escuela Energía", "Escuela Energia", "MANGO", "Castrillo2", "General"
+  ];
 
-      const coincideMes = ev.event_date.startsWith(filtroMes);
-      let coincideWorker = true;
+  const filtrados = eventos.filter(ev => {
+    if (!ev.event_date) return false;
+    const coincideMes = ev.event_date.startsWith(filtroMes);
+    let coincideWorker = true;
 
-      if (filtroWorker) {
-        const idBuscado = filtroWorker.toString();
-        // Verificamos si es coordinador o si está en el desglose de staff_detalle del API
-        const esCoord = ev.coord_project_id?.toString() === idBuscado || ev.coord_prod_id?.toString() === idBuscado;
-        const tieneNoches = ev.staff_detalle && ev.staff_detalle[idBuscado] !== undefined;
-        coincideWorker = esCoord || tieneNoches;
-      }
-      return coincideMes && coincideWorker;
+    if (filtroWorker) {
+      const idBuscado = filtroWorker.toString();
+      const esCoord = ev.coord_project_id?.toString() === idBuscado || ev.coord_prod_id?.toString() === idBuscado;
+      const tieneNoches = ev.staff_detalle && ev.staff_detalle[idBuscado] !== undefined;
+      coincideWorker = esCoord || tieneNoches;
+    }
+    return coincideMes && coincideWorker;
+  });
+
+  const grupos = {};
+
+  filtrados.forEach(ev => {
+    // BLINDAJE CRÍTICO: 
+    // Buscamos el proyecto asegurando que el ID del evento (project_id) 
+    // coincida exactamente con el ID de la tabla proyectos.
+    const proyectoInfo = proyectos.find(p => {
+      const pId = p.id?.toString().trim();
+      const evPId = ev.project_id?.toString().trim();
+      return pId === evPId && pId !== undefined;
     });
 
-    const grupos = {};
-    filtrados.forEach(ev => {
-      const proyectoInfo = proyectos.find(p => p.id == ev.project_id);
-      const empresa = proyectoInfo?.company || "Sin Empresa";
-      if (!grupos[empresa]) grupos[empresa] = [];
-      grupos[empresa].push(ev);
-    });
-
-    const gruposOrdenados = {};
-    ORDEN_PRIORIDAD.forEach(emp => { if (grupos[emp]) gruposOrdenados[emp] = grupos[emp]; });
-    Object.keys(grupos).forEach(emp => { if (!gruposOrdenados[emp]) gruposOrdenados[emp] = grupos[emp]; });
+    // Asignamos la empresa o un marcador de error para identificar fallos
+    const empresa = proyectoInfo?.company?.trim() || "Sin Empresa";
     
-    return { gruposPorEmpresa: gruposOrdenados, filtradosParaExportar: filtrados };
-  }, [eventos, filtroWorker, filtroMes, proyectos]);
+    if (!grupos[empresa]) grupos[empresa] = [];
+    grupos[empresa].push(ev);
+  });
+
+  // Ordenación por prioridad
+  const gruposOrdenados = {};
+  ORDEN_PRIORIDAD_EXTENDIDO.forEach(emp => { 
+    if (grupos[emp]) gruposOrdenados[emp] = grupos[emp]; 
+  });
+  
+  // Capturamos cualquier empresa nueva que no esté en la lista
+  Object.keys(grupos).forEach(emp => { 
+    if (!gruposOrdenados[emp]) gruposOrdenados[emp] = grupos[emp]; 
+  });
+  
+  return { gruposPorEmpresa: gruposOrdenados, filtradosParaExportar: filtrados };
+}, [eventos, filtroWorker, filtroMes, proyectos]);
+
+
 
   const handleEditClick = (ev, e) => {
     e.stopPropagation();
@@ -432,12 +455,27 @@ const handleExportarDivision = (formato, alcance, fechaExport) => {
               </select>
           </div>
           <div className="flex flex-col gap-1">
-              <label className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Proyecto</label>
-              <select className="p-3 bg-gray-100 rounded-xl text-xs font-bold outline-none" value={form.project_id} onChange={e => setForm({...form, project_id: e.target.value})}>
-                <option value="">Seleccionar proyecto...</option>
-                {proyectos.filter(p => p.company === empresaSeleccionadaModal).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-          </div>
+  <label className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Proyecto</label>
+  <select 
+    className="p-3 bg-gray-100 rounded-xl text-xs font-bold outline-none" 
+    value={form.project_id} 
+    onChange={e => setForm({...form, project_id: e.target.value})}
+  >
+    <option value="">Seleccionar proyecto...</option>
+    {/* Explicación:
+        1. Filtramos proyectos por la empresa elegida en el modal.
+        2. Creamos un Map usando el ID como clave para que no haya duplicados.
+        3. Convertimos los valores del Map en un Array para hacer el .map()
+    */}
+    {Array.from(new Map(
+      proyectos
+        .filter(p => p.company === empresaSeleccionadaModal)
+        .map(p => [p.id, p])
+    ).values()).map(p => (
+      <option key={p.id} value={p.id}>{p.name}</option>
+    ))}
+  </select>
+</div>
         </div>
 
         {/* FECHA PRINCIPAL (OBLIGATORIA) */}
