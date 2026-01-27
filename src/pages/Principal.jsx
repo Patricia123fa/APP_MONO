@@ -10,8 +10,8 @@ export const Principal = () => {
 
   // DEFINIMOS CON QUÉ ENLAZA CADA PESTAÑA
   const tabsData = [
-    { label: "Registro y resumen", content: <IntroHoras /> },
-    { label: "Ver todos los proyectos", content: <Proyectos /> },
+    { label: "Registro", content: <IntroHoras /> },
+    { label: "Ver proyectos", content: <Proyectos /> },
     { label: "Gestionar proyectos", content: <Gestionar /> },
     { label: "División de trabajo", content: <Division /> },
    

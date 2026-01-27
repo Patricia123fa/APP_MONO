@@ -159,6 +159,146 @@ const Division = () => {
 
   if (loading) return <div className="min-h-screen bg-[#fdc436] flex items-center justify-center font-black uppercase text-xs">Cargando División...</div>;
 
+const handleExportarDivision = (formato, alcance, fechaExport) => {
+    let filtrados = eventos;
+    let tituloPeriodo = "Historial Logística Completo";
+
+    if (alcance === "mes") {
+        const mesAFiltrar = fechaExport || filtroMes;
+        if (!mesAFiltrar) return alert("🐵 Selecciona un mes.");
+        const mesID = mesAFiltrar.substring(0, 7);
+        filtrados = eventos.filter(ev => ev.event_date?.startsWith(mesID));
+        tituloPeriodo = `Logística ${mesID}`;
+    }
+
+    const datosOrdenados = [...filtrados].sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
+
+    if (formato === "csv") {
+        const headers = ["FECHA", "EMPRESA", "PROYECTO", "STAFF_DETALLE", "TOTAL_NOCHES", "PR", "PD", "MONTAJE", "EQUIPO_M", "DESMONTAJE", "EQUIPO_D"];
+        
+        const rows = datosOrdenados.map(ev => {
+            const p = proyectos.find(proj => proj.id == ev.project_id);
+            const clean = (t) => `"${(t || "").toString().replace(/;/g, ',').replace(/"/g, '""')}"`;
+
+            // --- LÓGICA PARA LAS NOCHES POR EMPLEADO ---
+            let detalleStaffStr = "";
+            if (ev.staff_detalle && Object.keys(ev.staff_detalle).length > 0) {
+                detalleStaffStr = Object.entries(ev.staff_detalle)
+                    .map(([wId, n]) => {
+                        const t = trabajadores.find(trab => trab.id.toString() === wId.toString());
+                        return `${t ? t.name : 'Staff'}: ${n}🌙`;
+                    })
+                    .join(", "); // Ejemplo: "Juan: 2🌙, Pedro: 1🌙"
+            }
+
+            return [
+                ev.event_date,
+                clean(p?.company || "—"),
+                clean(ev.nombre_evento || p?.name),
+                clean(detalleStaffStr), // <--- AQUÍ SALEN LAS NOCHES POR EMPLEADO
+                ev.noches_totales || 0,
+                clean(ev.coordinador_proyecto),
+                clean(ev.coordinador_produccion),
+                clean(`${ev.setup_date} (${ev.setup_vehicle})`),
+                clean(ev.team_setup),
+                clean(`${ev.dismantle_date} (${ev.dismantle_vehicle})`),
+                clean(ev.team_dismantle)
+            ];
+        });
+
+        const csvContent = "\ufeff" + [headers.join(";"), ...rows.map(e => e.join(";"))].join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `MONO_LOGISTICA_${tituloPeriodo.toUpperCase()}.csv`;
+        link.click();
+        return;
+    }
+
+    if (formato === "pdf") {
+        const ventana = window.open('', '_blank');
+        if (!ventana) return alert("Bloqueador de ventanas activo 🐵");
+
+        ventana.document.write(`
+          <html>
+            <head>
+              <title>Reporte Logística MonoGnomo</title>
+              <script src="https://cdn.tailwindcss.com"></script>
+              <style>
+                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
+                body { font-family: 'Outfit', sans-serif; -webkit-print-color-adjust: exact; padding: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }
+                th { background-color: #f8fafc; text-align: left; text-transform: uppercase; font-size: 7px; letter-spacing: 0.1em; padding: 10px 5px; border-bottom: 2px solid #e2e8f0; }
+                td { padding: 8px 5px; border-bottom: 1px solid #f1f5f9; font-size: 9px; vertical-align: top; word-wrap: break-word; }
+                .badge { background: #fef3c7; color: #92400e; padding: 2px 4px; border-radius: 4px; font-weight: bold; font-size: 8px; }
+                .team-note { font-size: 8px; color: #64748b; font-style: italic; margin-top: 4px; line-height: 1.2; }
+                @media print { body { padding: 0; } .no-print { display: none; } @page { size: landscape; } }
+              </style>
+            </head>
+            <body class="bg-white text-slate-800">
+              <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-3">
+                  <span class="text-4xl">🐵</span>
+                  <div>
+                    <h1 class="text-xl font-black tracking-tighter text-slate-900">MonoGnomo</h1>
+                    <p class="text-[7px] font-black uppercase tracking-[0.4em] text-yellow-500">Logística e Informe de Equipo</p>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <p class="text-[12px] font-bold text-slate-700 capitalize">${tituloPeriodo}</p>
+                </div>
+              </div>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 8%">Fecha</th>
+                    <th style="width: 22%">Proyecto / Coordinación</th>
+                    <th style="width: 25%">Staff y Noches</th>
+                    <th style="width: 22%">Montaje / Equipo</th>
+                    <th style="width: 23%">Desmontaje / Equipo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${datosOrdenados.map(ev => {
+                    const p = proyectos.find(proj => proj.id == ev.project_id);
+                    return `
+                      <tr>
+                        <td class="font-bold text-slate-400">${ev.event_date}</td>
+                        <td>
+                          <div class="font-black text-slate-900 uppercase text-[10px] mb-1">${ev.nombre_evento || p?.name}</div>
+                          <div class="text-[8px] text-slate-500">PR: ${ev.coordinador_proyecto || "—"}</div>
+                          <div class="text-[8px] text-slate-500">PD: ${ev.coordinador_produccion || "—"}</div>
+                        </td>
+                        <td>
+                          <div class="text-slate-600 mb-1 leading-tight">${ev.desglose_noches || "—"}</div>
+                          ${ev.noches_totales > 0 ? `<span class="badge">🌙 TOTAL: ${ev.noches_totales}</span>` : ''}
+                        </td>
+                        <td>
+                          <div class="text-[9px] font-bold text-blue-600">${ev.setup_date || "—"}</div>
+                          <div class="text-[9px] font-black text-slate-700 mt-1">🚚 ${ev.setup_vehicle || "—"}</div>
+                          <div class="team-note">${ev.team_setup || "—"}</div>
+                        </td>
+                        <td>
+                          <div class="text-[9px] font-bold text-purple-600">${ev.dismantle_date || "—"}</div>
+                          <div class="text-[9px] font-black text-slate-700 mt-1">🚚 ${ev.dismantle_vehicle || "—"}</div>
+                          <div class="team-note">${ev.team_dismantle || "—"}</div>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+
+              <div class="mt-8 no-print flex justify-center">
+                <button onclick="window.print()" class="bg-black text-white px-8 py-3 rounded-full font-black uppercase text-[9px] tracking-widest shadow-xl active:scale-95 transition-all">Generar PDF</button>
+              </div>
+            </body>
+          </html>
+        `);
+        ventana.document.close();
+    }
+};
   return (
     <div className="bg-[#fdc436] min-h-screen p-0 sm:p-4 flex justify-center font-sans">
       <div className="w-full space-y-6 bg-transparent sm:bg-white/50 sm:p-6 sm:rounded-xl sm:shadow-lg sm:max-w-4xl sm:mx-auto">
@@ -194,86 +334,140 @@ const Division = () => {
                       <span className="text-gray-300 text-xl font-light w-8 text-center">{expandido[ev.id] ? "−" : "+"}</span>
                     </div>
                   </div>
-                  {expandido[ev.id] && (
-                    <div className="p-4 text-[10px] space-y-4 bg-gray-50/50 border-t border-gray-100">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-gray-400 font-black uppercase text-[8px] mb-1">Coordinación</p>
-                          <p className="font-bold text-gray-700">PR: {ev.coordinador_proyecto || "—"}</p>
-                          <p className="font-bold text-gray-700">PD: {ev.coordinador_produccion || "—"}</p>
-                        </div>
-                        <div>
-                          <p className="text-amber-600 font-black uppercase text-[8px] mb-1">Staff y Noches</p>
-                          <p className="font-bold italic text-gray-600 leading-tight">{ev.desglose_noches || "—"}</p>
-                          {ev.noches_totales > 0 && <p className="mt-1 text-amber-700 font-black uppercase text-[8px]">🌙 Total: {ev.noches_totales} noches</p>}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-blue-50 p-2 rounded-lg border border-blue-100">
-                          <span className="text-blue-600 font-black text-[7px] uppercase">Montaje</span>
-                          <p className="font-bold text-blue-900 leading-tight">🚚 {ev.setup_vehicle || "—"}</p>
-                          <p className="text-[8px] mt-1 text-blue-800/60">{ev.team_setup}</p>
-                        </div>
-                        <div className="bg-purple-50 p-2 rounded-lg border border-purple-100">
-                          <span className="text-purple-600 font-black text-[7px] uppercase">Desmontaje</span>
-                          <p className="font-bold text-purple-900 leading-tight">🚚 {ev.dismantle_vehicle || "—"}</p>
-                          <p className="text-[8px] mt-1 text-purple-800/60">{ev.team_dismantle}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                 {expandido[ev.id] && (
+  <div className="p-4 text-[10px] space-y-4 bg-gray-50/50 border-t border-gray-100">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* COLUMNA IZQUIERDA: FECHA PRINCIPAL Y COORDINACIÓN */}
+      <div>
+        <div className="mb-3 p-2 bg-white rounded-lg border border-gray-100 shadow-sm">
+           <p className="text-gray-400 font-black uppercase text-[7px] mb-0.5">📅 Fecha del Evento</p>
+           <p className="font-bold text-gray-800 text-[11px]">{ev.event_date || "—"}</p>
+        </div>
+        <p className="text-gray-400 font-black uppercase text-[8px] mb-1">Coordinación</p>
+        <p className="font-bold text-gray-700">PR: {ev.coordinador_proyecto || "—"}</p>
+        <p className="font-bold text-gray-700">PD: {ev.coordinador_produccion || "—"}</p>
+      </div>
+      
+      {/* COLUMNA DERECHA: STAFF Y NOCHES DETALLADAS */}
+      <div>
+        <p className="text-amber-600 font-black uppercase text-[8px] mb-1">Staff y Noches</p>
+        <div className="flex flex-wrap gap-1">
+          {ev.staff_detalle && Object.keys(ev.staff_detalle).length > 0 ? (
+            Object.entries(ev.staff_detalle).map(([wId, n]) => {
+              const trabajador = trabajadores.find(t => t.id.toString() === wId.toString());
+              const nochesReal = parseInt(n) || 0; 
+              return (
+                <div key={wId} className="bg-amber-100 text-amber-800 px-2 py-1 rounded-md font-bold text-[10px] border border-amber-200 flex items-center gap-1">
+                  {trabajador ? trabajador.name : 'Staff'}: 
+                  <span className="text-amber-900">{nochesReal} 🌙</span>
+                </div>
+              );
+            })
+          ) : (
+            <p className="font-bold italic text-gray-400 leading-tight">— Sin staff registrado —</p>
+          )}
+        </div>
+        {ev.noches_totales > 0 && (
+          <p className="mt-2 text-amber-700 uppercase text-[7px] font-black">
+            Total: {ev.noches_totales} {ev.noches_totales === 1 ? 'noche' : 'noches'}
+          </p>
+        )}
+      </div>
+    </div>
+
+    {/* BLOQUES DE LOGÍSTICA: Con las fechas específicas de la base de datos */}
+    <div className="grid grid-cols-2 gap-2">
+      {/* Montaje con su fecha */}
+      <div className="bg-blue-50 p-2 rounded-lg border border-blue-100">
+        <div className="flex justify-between items-start mb-1">
+          <span className="text-blue-600 font-black text-[7px] uppercase">Montaje</span>
+          <span className="text-[7px] font-bold text-blue-400 bg-white px-1.5 py-0.5 rounded border border-blue-100">
+            {ev.setup_date || "S/F"}
+          </span>
+        </div>
+        <p className="font-bold text-blue-900 leading-tight">🚚 {ev.setup_vehicle || "—"}</p>
+        <p className="text-[8px] mt-1 text-blue-800/60 whitespace-pre-wrap">{ev.team_setup}</p>
+      </div>
+
+      {/* Desmontaje con su fecha */}
+      <div className="bg-purple-50 p-2 rounded-lg border border-purple-100">
+        <div className="flex justify-between items-start mb-1">
+          <span className="text-purple-600 font-black text-[7px] uppercase">Desmontaje</span>
+          <span className="text-[7px] font-bold text-purple-400 bg-white px-1.5 py-0.5 rounded border border-purple-100">
+            {ev.dismantle_date || "S/F"}
+          </span>
+        </div>
+        <p className="font-bold text-purple-900 leading-tight">🚚 {ev.dismantle_vehicle || "—"}</p>
+        <p className="text-[8px] mt-1 text-purple-800/60 whitespace-pre-wrap">{ev.team_dismantle}</p>
+      </div>
+    </div>
+  </div>
+)}
                 </div>
               ))}
             </div>
           ))}
         </div>
         <div className="pt-4 flex justify-center">
-            <Exportacion eventos={filtradosParaExportar} />
-        </div>
+          <Exportacion onExport={handleExportarDivision} tipo="division" />
       </div>
+    </div>
 
       {showModalEvento && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-100 flex items-end sm:items-center justify-center font-sans text-left">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-sm font-black uppercase tracking-tight">{editId ? 'Editar Evento' : 'Nuevo Evento'}</h2>
-                <button onClick={() => setShowModalEvento(false)} className="text-gray-400 text-xl">✕</button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                    <label className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Empresa</label>
-                    <select className="p-3 bg-gray-100 rounded-xl text-xs font-bold outline-none" value={empresaSeleccionadaModal} onChange={e => {setEmpresaSeleccionadaModal(e.target.value); setForm({...form, project_id:""})}}>
-                      <option value="">Seleccionar empresa...</option>
-                      {empresasModal.map(e => <option key={e} value={e}>{e}</option>)}
-                    </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                    <label className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Proyecto</label>
-                    <select className="p-3 bg-gray-100 rounded-xl text-xs font-bold outline-none" value={form.project_id} onChange={e => setForm({...form, project_id: e.target.value})}>
-                      <option value="">Seleccionar proyecto...</option>
-                      {proyectos.filter(p => p.company === empresaSeleccionadaModal).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                </div>
-              </div>
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-100 flex items-end sm:items-center justify-center font-sans text-left">
+    <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl">
+      <div className="flex justify-between items-center mb-6">
+          <h2 className="text-sm font-black uppercase tracking-tight">{editId ? 'Editar Evento' : 'Nuevo Evento'}</h2>
+          <button onClick={() => setShowModalEvento(false)} className="text-gray-400 text-xl">✕</button>
+      </div>
+      
+      <div className="space-y-4">
+        {/* EMPRESA Y PROYECTO */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1">
+              <label className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Empresa</label>
+              <select className="p-3 bg-gray-100 rounded-xl text-xs font-bold outline-none" value={empresaSeleccionadaModal} onChange={e => {setEmpresaSeleccionadaModal(e.target.value); setForm({...form, project_id:""})}}>
+                <option value="">Seleccionar empresa...</option>
+                {empresasModal.map(e => <option key={e} value={e}>{e}</option>)}
+              </select>
+          </div>
+          <div className="flex flex-col gap-1">
+              <label className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Proyecto</label>
+              <select className="p-3 bg-gray-100 rounded-xl text-xs font-bold outline-none" value={form.project_id} onChange={e => setForm({...form, project_id: e.target.value})}>
+                <option value="">Seleccionar proyecto...</option>
+                {proyectos.filter(p => p.company === empresaSeleccionadaModal).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+          </div>
+        </div>
 
-              <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-2xl">
-                  <div className="flex flex-col gap-1">
-                      <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PR</label>
-                      <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_project_id} onChange={e => setForm({...form, coord_project_id: e.target.value})}>
-                          <option value="">Sin asignar</option>
-                          {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                      </select>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                      <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PD</label>
-                      <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_prod_id} onChange={e => setForm({...form, coord_prod_id: e.target.value})}>
-                          <option value="">Sin asignar</option>
-                          {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                      </select>
-                  </div>
-              </div>
+        {/* FECHA PRINCIPAL (OBLIGATORIA) */}
+        <div className="flex flex-col gap-1 bg-amber-50 p-3 rounded-2xl border border-amber-100">
+            <label className="text-[8px] font-black uppercase text-amber-600 tracking-widest">📅 Fecha Principal del Evento</label>
+            <input 
+              type="date" 
+              className="p-2 bg-white rounded-lg text-xs font-bold outline-none border border-amber-200"
+              value={form.event_date}
+              onChange={e => setForm({...form, event_date: e.target.value})}
+            />
+        </div>
+
+        {/* COORDINADORES */}
+        <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-2xl">
+            <div className="flex flex-col gap-1">
+                <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PR</label>
+                <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_project_id} onChange={e => setForm({...form, coord_project_id: e.target.value})}>
+                    <option value="">Sin asignar</option>
+                    {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+            </div>
+            <div className="flex flex-col gap-1">
+                <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PD</label>
+                <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_prod_id} onChange={e => setForm({...form, coord_prod_id: e.target.value})}>
+                    <option value="">Sin asignar</option>
+                    {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+            </div>
+        </div>
 
               <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
                 <label className="text-blue-600 uppercase text-[8px] font-black block mb-3 text-center tracking-widest underline">MonoGnomos y Noches</label>

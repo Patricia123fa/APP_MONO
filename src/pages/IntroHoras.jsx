@@ -115,7 +115,7 @@ export const IntroHoras = () => {
         {empleadoSeleccionado && (
           <div className="mx-auto w-full max-w-4xl rounded-xl bg-white/70 p-4 shadow">
             <label className="block mb-2 font-semibold text-gray-700 uppercase text-[10px] tracking-wider">
-              1. Empresa / Cliente
+              Selecciona Empresa
             </label>
             <select
               value={empresaSeleccionada}
@@ -161,7 +161,7 @@ export const IntroHoras = () => {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl space-y-6 border-t-8 border-[#fdc436]">
               <div className="text-center">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Resumen de Selección</span>
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Has seleccionado:</span>
                 <h3 className="text-xl font-black text-black uppercase mt-2 tracking-tight">
                   {proyectoSeleccionado.name}
                 </h3>
@@ -183,7 +183,7 @@ export const IntroHoras = () => {
               </div>
 
               <div className="space-y-4">
-                <p className="text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">¿Cuántas horas has dedicado?</p>
+                <p className="text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">introduce tus horas</p>
                 <SelectorHoras15min horas={horas} setHoras={setHoras} />
               </div>
 
@@ -196,7 +196,7 @@ export const IntroHoras = () => {
                       ? "bg-black text-white border-black hover:bg-white hover:text-black" 
                       : "bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed"}`}
                 >
-                  Registrar Entrada 🐵
+                  Registrar 🐵
                 </button>
                 <button 
                   onClick={() => { setMostrarModal(false); setProyectoSeleccionado(null); }} 

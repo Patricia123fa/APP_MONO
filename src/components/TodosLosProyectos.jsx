@@ -201,7 +201,7 @@ export default function TodosLosProyectos() {
             `).join('')}
 
             <div class="mt-10 pt-6 border-t border-slate-100 flex justify-between items-center">
-              <p class="text-[9px] font-bold text-slate-300 uppercase tracking-widest text-left font-black italic">Total Report</p>
+              <p class="text-[9px] text-slate-300 uppercase tracking-widest text-left font-black italic">Total Report</p>
               <p class="text-4xl font-black text-slate-900 tracking-tighter text-right">
                 ${formatDisplayTime(filtrados.reduce((acc, curr) => acc + parseFloat(curr.hours), 0))}
               </p>
