@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from "react";
+
 //CONVIERTE LA FECHA DEL AÑO
 const formatearMesAnio = (mesAnioStr) => {
   if (!mesAnioStr) return "";
-  // SI EL MARCADOR ES ESPECIAL SE ESCRIBE "SIEMPRE ACTIVO"
   if (mesAnioStr === "9999-12") return "✨ Siempre Activo";
   
   const [year, month] = mesAnioStr.split("-");
@@ -10,13 +10,13 @@ const formatearMesAnio = (mesAnioStr) => {
   const nombreMes = new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(fecha);
   return `${nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)} ${year}`;
 };
-//USA LOS DATOS DE LOS PROYECTOS
+
 export default function SeleccionProyecto({ 
   proyectoSeleccionado, 
   setProyectoSeleccionado, 
   proyectos = [], 
   empresaPadre, 
-  fechaPadre, // RECIBE EL MES DE INTROHORAS
+  fechaPadre, 
   alActualizarDatos 
 }) {
   const [mostrandoFormNuevo, setMostrandoFormNuevo] = useState(false);
@@ -28,13 +28,9 @@ export default function SeleccionProyecto({
     if (!empresaPadre || !fechaPadre) return [];
     
     const unicos = new Map();
-
     proyectos.forEach(p => {
-      // NORMALIZAMOS EMPRESA
       const empresaBD = (p.company || "Sin Empresa").trim();
       const coincideEmpresa = empresaBD === empresaPadre.trim();
-      
-      // NORMALIZAMOS MES
       const mesBD = String(p.month_key || "").trim();
       const mesBuscado = String(fechaPadre).trim();
       const coincideMes = mesBD === mesBuscado || mesBD === "9999-12";
@@ -44,20 +40,40 @@ export default function SeleccionProyecto({
       }
     });
 
-    // CONVERTIMOS EN ARRAY Y ORDENAMOS ALFABÉTICAMENTE
     return Array.from(unicos.values()).sort((a, b) => 
       a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
     );
   }, [empresaPadre, fechaPadre, proyectos]);
 
   const handleGuardarNuevo = async () => {
-    if (!nuevoNombre.trim()) return;
-    setCargando(true);
+    const nombreLimpio = nuevoNombre.trim();
+    if (!nombreLimpio) return;
 
+    // --- LÓGICA DE VALIDACIÓN MEJORADA ---
+    // Sacamos palabras de más de 2 letras
+    const palabrasNuevas = nombreLimpio.toLowerCase().split(/\s+/).filter(p => p.length > 2);
+    
+    // Buscamos en la lista completa de proyectos que viene por props
+    const duplicadoExistente = proyectos.find(proj => {
+      const palabrasExistentes = proj.name.toLowerCase().split(/\s+/).filter(p => p.length > 2);
+      // Contamos cuántas palabras coinciden
+      const coincidencias = palabrasNuevas.filter(pal => palabrasExistentes.includes(pal));
+      // Si coinciden 3 palabras (o todas si el nombre es corto), avisamos
+      return coincidencias.length >= 3 || (palabrasNuevas.length > 0 && coincidencias.length === palabrasNuevas.length);
+    });
+
+    if (duplicadoExistente) {
+      const confirmar = window.confirm(
+        `⚠️ ¡ATENCIÓN MONO! ⚠️\n\nEste proyecto se parece mucho a: "${duplicadoExistente.name.toUpperCase()}"\n\n¿Estás seguro de que no es el mismo?`
+      );
+      if (!confirmar) return; // Si cancela, no guarda
+    }
+
+    setCargando(true);
     const datos = {
       action: 'add_custom',
       tipo: 'proyecto', 
-      nombre: nuevoNombre,
+      nombre: nombreLimpio,
       empresa_relacionada: empresaPadre,
       month_key: fechaPadre 
     };
@@ -82,7 +98,7 @@ export default function SeleccionProyecto({
   };
 
   if (!empresaPadre) return null;
-//VISUAL
+
   return (
     <div className="mx-auto w-full max-w-4xl rounded-xl bg-white/70 p-4 shadow space-y-3 animate-in fade-in duration-300">
       <div className="flex justify-between items-center px-1">
@@ -102,7 +118,7 @@ export default function SeleccionProyecto({
           if (e.target.value === "nuevo") {
             setMostrandoFormNuevo(true);
           } else {
-            const proy = proyectosFiltrados.find((p) => p.id == e.target.value);
+            const proy = proyectosFiltrados.find((p) => String(p.id) === String(e.target.value));
             setProyectoSeleccionado(proy);
             setMostrandoFormNuevo(false);
           }

@@ -8,10 +8,16 @@ import { Footer } from "../components/Footer";
 
 //SE ESTABLECE EL ORDEN DE PRIORIDAD DE LAS EMPRESAS
 const ORDEN_PRIORIDAD = [
-  "Monognomo", "Neozink", "Picofino", "Guardianes", 
-  "Escuela Energía", "Escuela Energia", "MANGO", "General"
+  "Monognomo", 
+  "Neozink", 
+  "Yurmuvi", 
+  "Picofino", 
+  "Guardianes", 
+  "Escuela Energía", 
+  "MANGO", 
+  "Castrillo2", 
+  "General"
 ];
-
 const sortEmpresas = (a, b) => {
   let idxA = ORDEN_PRIORIDAD.indexOf(a);
   let idxB = ORDEN_PRIORIDAD.indexOf(b);
