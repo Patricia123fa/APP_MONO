@@ -1,22 +1,38 @@
 import React, { useState } from "react"
 
 export const Log = ({ setIsAuth }) => {
-  //ESTADOS QUE CONTROLA
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [recordar, setRecordar] = useState(false)
-  
-  //CONTRASEÑA VÁLIDA Y VARIABLES EN CASO DE SER INCORRECTA.
   const [verPassword, setVerPassword] = useState(false)
-  const PASSWORD_CORRECTA = "Monoestratega8" 
+  const [cargando, setCargando] = useState(false);
+  
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (password === PASSWORD_CORRECTA) {
-      if (recordar) localStorage.setItem("isAuth", "true")
-      setIsAuth(true)
-    } else {
-      setError("❌ Contraseña incorrecta")
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setCargando(true);
+    setError("");
+
+    try {
+      // LE PREGUNTAMOS AL SERVIDOR (Aquí ya no hay contraseña a la vista)
+      const resp = await fetch("https://registromono.monognomo.com/api.php?action=check_password", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pass: password })
+      });
+      
+      const data = await resp.json();
+
+      if (data.success) {
+        if (recordar) localStorage.setItem("isAuth", "true");
+        setIsAuth(true);
+      } else {
+        setError("❌ Contraseña incorrecta");
+      }
+    } catch (err) {
+      setError("⚠️ Error de conexión con el servidor");
+    } finally {
+      setCargando(false);
     }
   }
   //CONTENEDOR DE ESTILOS PRINCIPAL
