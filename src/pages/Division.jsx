@@ -75,7 +75,12 @@ const Division = () => {
     proyectos.forEach(p => {
         const esProyectoVacio = !p.month_key; 
         const mesBD = String(p.month_key || "").replace(/-/g, "").trim();
-        const coincideMes = mesBD === mesBuscado || mesBD === "999912";
+        
+        // --- MODIFICACIÓN AQUÍ: EXCLUIR SIEMPRE ACTIVO ---
+        if (mesBD === "999912") return; 
+        // -------------------------------------------------
+
+        const coincideMes = mesBD === mesBuscado; // Se eliminó la condición OR
         const pExistente = proyectosUnicos.get(p.id);
 
         if (!pExistente) {
