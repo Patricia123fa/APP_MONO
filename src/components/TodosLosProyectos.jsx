@@ -50,7 +50,6 @@ const ORDEN_PRIORIDAD = [
   "Guardianes", 
   "Escuela Energía", 
   "Escuela Energia", 
-  "MANGO", 
   "Castrillo2",
   "General"
 ];
@@ -309,7 +308,7 @@ export default function TodosLosProyectos() {
     <div className="w-full max-w-5xl mx-auto px-4 pb-20 pt-0 bg-transparent min-h-screen font-sans text-gray-700 text-left">
       <h1 className="text-gray-700 text-center mb-4 font-bold text-xl uppercase tracking-tight">VER TODOS LOS PROYECTOS</h1>
       
-      <div className="flex justify-center mb-6 scale-[0.8] origin-top">
+      <div className="pt-4 flex justify-center mb-4 origin-top">
          <Exportacion tipo="registro" onExport={handleExportarRegistro} />
       </div>
 

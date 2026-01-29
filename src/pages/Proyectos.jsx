@@ -37,9 +37,7 @@ export default function Proyectos() {
             alActualizar={cargarDatos} 
           />
         )}
-        
       </div>
-      <Footer />
     </div>
   )
 }

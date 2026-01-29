@@ -14,7 +14,6 @@ const ORDEN_PRIORIDAD = [
   "Picofino", 
   "Guardianes", 
   "Escuela Energía", 
-  "MANGO", 
   "Castrillo2", 
   "General"
 ];
@@ -222,7 +221,6 @@ export const IntroHoras = () => {
             </div>
           </div>
         )}
-        <Footer/>
         </div>
     </div>
   );

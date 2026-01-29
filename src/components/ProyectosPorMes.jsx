@@ -13,7 +13,8 @@ const ORDEN_PRIORIDAD = [
   "MANGO", 
   "General"
 ];
- //NOS CONVIERTE LOS NÚMEROS EN MES Y AÑO O SIEMPRE ACTIVO
+
+//NOS CONVIERTE LOS NÚMEROS EN MES Y AÑO O SIEMPRE ACTIVO
 const formatearMesAnio = (mesAnioStr) => {
   if (!mesAnioStr) return "";
   if (mesAnioStr === "9999-12") return "✨ SIEMPRE ACTIVO";
@@ -23,13 +24,14 @@ const formatearMesAnio = (mesAnioStr) => {
   const nombreMes = new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(fecha);
   return `${nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)} ${year}`;
 };
+
 //ESTADOS PRINCIPALES
 export default function ProyectosPorMes() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [abiertos, setAbiertos] = useState({});
   const [mesSeleccionado, setMesSeleccionado] = useState("");
-//ESTADOS DEL MODAL
+  //ESTADOS DEL MODAL
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState({ 
     project_id: "", name: "", originalName: "", workers: "", meses: [], nuevoMes: "" 
@@ -54,7 +56,8 @@ export default function ProyectosPorMes() {
       setEditando({ ...editando, meses: ["9999-12", ...editando.meses] });
     }
   };
-//FUNCIÓN PARA GESTIONAR EL BORRADO DE LOS DATOS REAL
+
+  //FUNCIÓN PARA GESTIONAR EL BORRADO DE LOS DATOS REAL
   const handleBorrarProyecto = async (id, nombre) => {
     const confirmar = window.confirm(`⚠️ ¿Borrar el proyecto "${nombre.toUpperCase()}"?\nSe eliminarán todos los registros asociados.`);
     if (confirmar) {
@@ -65,7 +68,8 @@ export default function ProyectosPorMes() {
       } catch (err) { alert("Error de conexión"); }
     }
   };
-// FUNCIÓN PARA GESTIONAR EL GUARDADO DE DATOS DE FORMA REAL
+
+  // FUNCIÓN PARA GESTIONAR EL GUARDADO DE DATOS DE FORMA REAL
   const handleGuardarCambios = async (e) => {
     e.preventDefault();
     try {
@@ -83,39 +87,70 @@ export default function ProyectosPorMes() {
       }
     } catch (err) { alert("Error al conectar con la API"); }
   };
-//TRANSFORMACIÓ DE LOS DATOS Y FILTRADO. SE FILTRA POR MES Y SE AGRUPO POSTERIORMENTE
+
+  // --- AQUÍ ESTÁ EL CAMBIO IMPORTANTE: FILTRADO Y AGRUPACIÓN MEJORADOS ---
   const companiesData = useMemo(() => {
     if (!data.length) return [];
+    
     const agrupado = {};
-    const datosFiltrados = mesSeleccionado 
-      ? data.filter(reg => 
-          (reg.date_work && reg.date_work.startsWith(mesSeleccionado)) || 
-          reg.month_key === mesSeleccionado ||
-          reg.month_key === "9999-12"
-        )
-      : data;
+    
+    // Normalizamos el mes seleccionado (quitamos guiones)
+    const mesBuscado = mesSeleccionado.replace(/-/g, "").trim();
+
+    // Filtramos los datos
+    const datosFiltrados = data.filter(reg => {
+        // Si no hay mes seleccionado, mostrar todo
+        if (!mesSeleccionado) return true;
+
+        const mesBD = String(reg.month_key || "").replace(/-/g, "").trim();
+        
+        // 1. Coincide con el mes seleccionado
+        // 2. Es "Siempre Activo"
+        // 3. NO TIENE MES (Es un proyecto nuevo/vacío) -> ¡ESTO HACE QUE SALGAN LOS NUEVOS!
+        return (
+            mesBD === mesBuscado || 
+            mesBD === "999912" || 
+            !reg.month_key // null o vacío
+        );
+    });
 
     datosFiltrados.forEach(reg => {
-      const empName = reg.company || "Sin Empresa";
+      // Normalización de nombre de empresa para agrupar "Neozink" y "Neozink "
+      const empRaw = reg.company || "Sin Empresa";
+      const empKey = empRaw.trim().toLowerCase();
+      
+      // Buscamos si ya existe la llave (case insensitive)
+      let finalKey = Object.keys(agrupado).find(k => k.toLowerCase() === empKey);
+      
+      // Si no existe, usamos el nombre original limpio
+      if (!finalKey) {
+          finalKey = empRaw.trim();
+          agrupado[finalKey] = { id: finalKey, name: finalKey, projects: {} };
+      }
+
       const proyID = reg.project_id;
-      if (!agrupado[empName]) agrupado[empName] = { id: empName, name: empName, projects: {} };
-      if (!agrupado[empName].projects[proyID]) {
-        agrupado[empName].projects[proyID] = { 
+      
+      if (!agrupado[finalKey].projects[proyID]) {
+        agrupado[finalKey].projects[proyID] = { 
           id: proyID, 
           name: reg.name, 
           mesesSet: new Set(), 
           workers: reg.manual_workers || "Sin equipo asignado", 
-          company: empName 
+          company: finalKey 
         };
       }
+      
+      // Añadimos el mes a la lista visual del proyecto
       const mesAnio = reg.date_work ? reg.date_work.slice(0, 7) : reg.month_key;
-      if (mesAnio) agrupado[empName].projects[proyID].mesesSet.add(mesAnio);
+      if (mesAnio) agrupado[finalKey].projects[proyID].mesesSet.add(mesAnio);
     });
 
     return Object.values(agrupado)
       .sort((a, b) => {
-        let idxA = ORDEN_PRIORIDAD.indexOf(a.name);
-        let idxB = ORDEN_PRIORIDAD.indexOf(b.name);
+        // Ordenación insensible a mayúsculas
+        let idxA = ORDEN_PRIORIDAD.findIndex(p => p.toLowerCase() === a.name.toLowerCase());
+        let idxB = ORDEN_PRIORIDAD.findIndex(p => p.toLowerCase() === b.name.toLowerCase());
+        
         if (idxA === -1) idxA = 99;
         if (idxB === -1) idxB = 99;
         return idxA - idxB || a.name.localeCompare(b.name);
@@ -134,7 +169,7 @@ export default function ProyectosPorMes() {
   
   return (
     <div className="space-y-6 max-w-6xl mx-auto p-3 md:p-6 font-sans mb-6 text-left">
-      {/* FILTRO SUPERIOR REPARADO PARA MÓVIL */}
+      {/* FILTRO SUPERIOR */}
       <div className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="text-center md:text-left">
           <span className="text-[10px] md:text-xs font-black text-gray-800 uppercase tracking-widest leading-none">Gestión por mes</span>
@@ -167,6 +202,10 @@ export default function ProyectosPorMes() {
 
       {/* LISTADO */}
       <div className="space-y-5">
+        {companiesData.length === 0 && (
+            <div className="text-center py-10 opacity-50 font-bold uppercase text-xs">No hay proyectos encontrados</div>
+        )}
+
         {companiesData.map((company) => (
           <div key={company.id} className="bg-white rounded-4xl shadow-sm border border-gray-50 overflow-hidden">
             <button 
@@ -195,11 +234,15 @@ export default function ProyectosPorMes() {
                         <td className="px-8 py-5 text-xs font-bold uppercase text-gray-800 truncate">{p.name}</td>
                         <td className="px-8 py-5">
                           <div className="flex flex-wrap gap-1.5">
-                            {p.mesesList.map(m => (
-                              <span key={m} className={`text-[9px] px-2 py-1 rounded-lg font-bold border ${m === '9999-12' ? 'bg-yellow-100 border-yellow-200 text-yellow-700' : 'bg-white border-gray-100 text-gray-500'}`}>
-                                {formatearMesAnio(m)}
-                              </span>
-                            ))}
+                            {p.mesesList.length > 0 ? (
+                                p.mesesList.map(m => (
+                                <span key={m} className={`text-[9px] px-2 py-1 rounded-lg font-bold border ${m === '9999-12' ? 'bg-yellow-100 border-yellow-200 text-yellow-700' : 'bg-white border-gray-100 text-gray-500'}`}>
+                                    {formatearMesAnio(m)}
+                                </span>
+                                ))
+                            ) : (
+                                <span className="text-[9px] text-red-400 font-bold italic px-2 py-1 bg-red-50 rounded-lg">Nuevo / Sin Mes</span>
+                            )}
                           </div>
                         </td>
                         <td className="px-8 py-5 text-[10px] text-gray-400 italic truncate capitalize">{p.workers}</td>
@@ -223,11 +266,13 @@ export default function ProyectosPorMes() {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        {p.mesesList.map(m => (
+                        {p.mesesList.length > 0 ? p.mesesList.map(m => (
                           <span key={m} className={`text-[8px] px-2 py-0.5 rounded-md font-bold border ${m === '9999-12' ? 'bg-yellow-100 border-yellow-200 text-yellow-700' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
                             {formatearMesAnio(m)}
                           </span>
-                        ))}
+                        )) : (
+                            <span className="text-[8px] px-2 py-0.5 rounded-md font-bold bg-red-50 text-red-400 italic">Nuevo / Sin Mes</span>
+                        )}
                       </div>
                       {p.workers && <p className="text-[9px] text-gray-400 italic font-medium">👥 {p.workers}</p>}
                     </div>

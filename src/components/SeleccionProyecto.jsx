@@ -23,20 +23,45 @@ export default function SeleccionProyecto({
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [cargando, setCargando] = useState(false);
 
-  // FILTRADO 
+  // --- FILTRADO CORREGIDO: INCLUYE PROYECTOS VACÍOS/NUEVOS ---
   const proyectosFiltrados = useMemo(() => {
     if (!empresaPadre || !fechaPadre) return [];
     
-    const unicos = new Map();
-    proyectos.forEach(p => {
-      const empresaBD = (p.company || "Sin Empresa").trim();
-      const coincideEmpresa = empresaBD === empresaPadre.trim();
-      const mesBD = String(p.month_key || "").trim();
-      const mesBuscado = String(fechaPadre).trim();
-      const coincideMes = mesBD === mesBuscado || mesBD === "9999-12";
+    // Normalizamos lo que buscamos
+    const empresaBuscada = String(empresaPadre).trim().toLowerCase();
+    const mesBuscado = String(fechaPadre).replace(/-/g, "").trim(); 
 
-      if (coincideEmpresa && coincideMes) {
-        unicos.set(p.id, p);
+    const unicos = new Map();
+
+    proyectos.forEach(p => {
+      // Normalizamos datos BD
+      const empresaBD = String(p.company || "Sin Empresa").trim().toLowerCase();
+      
+      // 1. Detectar si el proyecto no tiene mes asignado (es nuevo)
+      const esProyectoVacio = !p.month_key;
+
+      const mesBDRaw = String(p.month_key || ""); 
+      const mesBD = mesBDRaw.replace(/-/g, "").trim();
+
+      // Comparaciones
+      const coincideEmpresa = empresaBD === empresaBuscada;
+      
+      // 2. Condiciones de visualización:
+      // - Coincide el mes exacto
+      // - Es "Siempre Activo"
+      // - O NO tiene mes (para que salgan los nuevos)
+      const esDelMes = mesBD === mesBuscado;
+      const esSiempreActivo = mesBD === "999912" || mesBD === "9999-12";
+      
+      const debeAparecer = esDelMes || esSiempreActivo || esProyectoVacio;
+
+      if (coincideEmpresa && debeAparecer) {
+        // Prioridad: Si ya guardamos el proyecto (quizás la versión vacía),
+        // pero ahora encontramos la versión con el mes correcto, actualizamos el Map.
+        const yaExiste = unicos.get(p.id);
+        if (!yaExiste || esDelMes) {
+            unicos.set(p.id, p);
+        }
       }
     });
 
@@ -49,16 +74,12 @@ export default function SeleccionProyecto({
     const nombreLimpio = nuevoNombre.trim();
     if (!nombreLimpio) return;
 
-    // --- LÓGICA DE VALIDACIÓN MEJORADA ---
-    // Sacamos palabras de más de 2 letras
+    // --- LÓGICA DE VALIDACIÓN ---
     const palabrasNuevas = nombreLimpio.toLowerCase().split(/\s+/).filter(p => p.length > 2);
     
-    // Buscamos en la lista completa de proyectos que viene por props
     const duplicadoExistente = proyectos.find(proj => {
       const palabrasExistentes = proj.name.toLowerCase().split(/\s+/).filter(p => p.length > 2);
-      // Contamos cuántas palabras coinciden
       const coincidencias = palabrasNuevas.filter(pal => palabrasExistentes.includes(pal));
-      // Si coinciden 3 palabras (o todas si el nombre es corto), avisamos
       return coincidencias.length >= 3 || (palabrasNuevas.length > 0 && coincidencias.length === palabrasNuevas.length);
     });
 
@@ -66,7 +87,7 @@ export default function SeleccionProyecto({
       const confirmar = window.confirm(
         `⚠️ ¡ATENCIÓN! ⚠️\n\nEste proyecto se parece mucho a: "${duplicadoExistente.name.toUpperCase()}"\n\n¿Estás seguro de que no es el mismo?`
       );
-      if (!confirmar) return; // Si cancela, no guarda
+      if (!confirmar) return; 
     }
 
     setCargando(true);

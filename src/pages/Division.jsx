@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import Exportacion from '../components/Exportación';
 
 const PALETA_PASTEL = ["#F0F4FF", "#F5F5DC", "#E6FFFA", "#FFF5F5", "#FAF5FF", "#F0FFF4", "#FFF9E6"];
-const ORDEN_PRIORIDAD = ["Monognomo", "Neozink", "Picofino", "Guardianes", "Escuela Energía", "Escuela Energia", "MANGO", "General"];
+const ORDEN_PRIORIDAD = ["Monognomo", "Neozink", "Picofino", "Yurmuvi", "Guardianes", "Escuela Energía", "Escuela Energia", "Castrillo2", "General"];
 
 const Division = () => {
   const [eventos, setEventos] = useState([]);
@@ -26,6 +26,7 @@ const Division = () => {
   };
   const [form, setForm] = useState(initialForm);
 
+  // --- CARGA DE DATOS ---
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -50,8 +51,9 @@ const Division = () => {
 
   useEffect(() => { fetchData(); }, []);
 
+  // --- BORRAR EVENTO ---
   const deleteEvento = async (id, nombre) => {
-    const confirmar = window.confirm(`⚠️ ¿Borrar "${nombre?.toUpperCase() || 'EVENTO'}"?`);
+    const confirmar = window.confirm(`⚠️ ¿Borrar datos de logística de "${nombre?.toUpperCase() || 'EVENTO'}"?\n(El proyecto seguirá existiendo, solo se reinicia la logística)`);
     if (!confirmar) return;
     try {
       const res = await fetch(`https://registromono.monognomo.com/api.php?action=delete_event&id=${id}`);
@@ -60,85 +62,113 @@ const Division = () => {
     } catch (err) { alert("Error de conexión"); }
   };
 
- const { gruposPorEmpresa, filtradosParaExportar } = useMemo(() => {
-  // 1. Lista de prioridad actualizada con todas tus empresas detectadas
-  const ORDEN_PRIORIDAD_EXTENDIDO = [
-    "Monognomo", "Neozink", "Picofino", "Yurmuvi", "Guardianes", 
-    "Escuela Energía", "Escuela Energia", "MANGO", "Castrillo2", "General"
-  ];
+  // =================================================================================
+  // LÓGICA CORE: DEDUPLICACIÓN Y AGRUPACIÓN
+  // =================================================================================
+  const { gruposPorEmpresa } = useMemo(() => {
+    const mesBuscado = filtroMes.replace(/-/g, "").trim();
+    const mapaEventos = new Map();
+    eventos.forEach(ev => mapaEventos.set(ev.project_id?.toString(), ev));
 
-  const filtrados = eventos.filter(ev => {
-    if (!ev.event_date) return false;
-    const coincideMes = ev.event_date.startsWith(filtroMes);
-    let coincideWorker = true;
-
-    if (filtroWorker) {
-      const idBuscado = filtroWorker.toString();
-      const esCoord = ev.coord_project_id?.toString() === idBuscado || ev.coord_prod_id?.toString() === idBuscado;
-      const tieneNoches = ev.staff_detalle && ev.staff_detalle[idBuscado] !== undefined;
-      coincideWorker = esCoord || tieneNoches;
-    }
-    return coincideMes && coincideWorker;
-  });
-
-  const grupos = {};
-
-  filtrados.forEach(ev => {
-    // BLINDAJE CRÍTICO: 
-    // Buscamos el proyecto asegurando que el ID del evento (project_id) 
-    // coincida exactamente con el ID de la tabla proyectos.
-    const proyectoInfo = proyectos.find(p => {
-      const pId = p.id?.toString().trim();
-      const evPId = ev.project_id?.toString().trim();
-      return pId === evPId && pId !== undefined;
-    });
-
-    // Asignamos la empresa o un marcador de error para identificar fallos
-    const empresa = proyectoInfo?.company?.trim() || "Sin Empresa";
+    const proyectosUnicos = new Map();
     
-    if (!grupos[empresa]) grupos[empresa] = [];
-    grupos[empresa].push(ev);
-  });
+    proyectos.forEach(p => {
+        const esProyectoVacio = !p.month_key; 
+        const mesBD = String(p.month_key || "").replace(/-/g, "").trim();
+        const coincideMes = mesBD === mesBuscado || mesBD === "999912";
+        const pExistente = proyectosUnicos.get(p.id);
 
-  // Ordenación por prioridad
-  const gruposOrdenados = {};
-  ORDEN_PRIORIDAD_EXTENDIDO.forEach(emp => { 
-    if (grupos[emp]) gruposOrdenados[emp] = grupos[emp]; 
-  });
-  
-  // Capturamos cualquier empresa nueva que no esté en la lista
-  Object.keys(grupos).forEach(emp => { 
-    if (!gruposOrdenados[emp]) gruposOrdenados[emp] = grupos[emp]; 
-  });
-  
-  return { gruposPorEmpresa: gruposOrdenados, filtradosParaExportar: filtrados };
-}, [eventos, filtroWorker, filtroMes, proyectos]);
-
-
-
-  const handleEditClick = (ev, e) => {
-    e.stopPropagation();
-    const proyectoInfo = proyectos.find(p => p.id == ev.project_id);
-    setEmpresaSeleccionadaModal(proyectoInfo?.company || "");
-    setEditId(ev.id);
-    setForm({
-      project_id: ev.project_id || "", 
-      place: ev.place || "", 
-      event_date: ev.event_date || "",
-      setup_date: ev.setup_date || "", 
-      dismantle_date: ev.dismantle_date || "",
-      coord_project_id: ev.coord_project_id || "", 
-      coord_prod_id: ev.coord_prod_id || "",
-      team_setup: ev.team_setup || "", 
-      team_dismantle: ev.team_dismantle || "",
-      setup_vehicle: ev.setup_vehicle || "", 
-      dismantle_vehicle: ev.dismantle_vehicle || ""
+        if (!pExistente) {
+            const tieneEvento = mapaEventos.has(p.id.toString());
+            if (coincideMes || esProyectoVacio || tieneEvento) {
+                proyectosUnicos.set(p.id, p);
+            }
+        } else {
+            if (coincideMes) {
+                proyectosUnicos.set(p.id, p);
+            }
+        }
     });
 
-    // CARGA LAS NOCHES REALES DESDE EL OBJETO staff_detalle QUE VIENE DEL PHP
+    const grupos = {};
+
+    proyectosUnicos.forEach(p => {
+        const eventoAsociado = mapaEventos.get(p.id.toString());
+        
+        if (filtroWorker) {
+            if (!eventoAsociado) return; 
+            const idBuscado = filtroWorker.toString();
+            const esCoord = eventoAsociado.coord_project_id?.toString() === idBuscado || eventoAsociado.coord_prod_id?.toString() === idBuscado;
+            const tieneNoches = eventoAsociado.staff_detalle && eventoAsociado.staff_detalle[idBuscado] !== undefined;
+            if (!esCoord && !tieneNoches) return;
+        }
+
+        const empresaRaw = p.company || "Sin Empresa";
+        const empresaKeyNorm = empresaRaw.trim().toLowerCase();
+        const existingKey = Object.keys(grupos).find(k => k.toLowerCase() === empresaKeyNorm);
+        const groupKey = existingKey || empresaRaw.trim(); 
+
+        if (!grupos[groupKey]) grupos[groupKey] = [];
+
+        grupos[groupKey].push({
+            tipo: eventoAsociado ? 'completo' : 'pendiente',
+            proyecto: p,
+            evento: eventoAsociado || {} 
+        });
+    });
+
+    const gruposOrdenados = {};
+    const empresasDetectadas = Object.keys(grupos);
+    
+    ORDEN_PRIORIDAD.forEach(empPrioridad => {
+        const empDetectada = empresasDetectadas.find(e => e.toLowerCase() === empPrioridad.toLowerCase());
+        if (empDetectada && grupos[empDetectada]) {
+            gruposOrdenados[empDetectada] = grupos[empDetectada].sort((a,b) => a.proyecto.name.localeCompare(b.proyecto.name));
+        }
+    });
+    
+    empresasDetectadas.forEach(emp => {
+        if (!Object.values(gruposOrdenados).includes(grupos[emp])) { 
+             const yaEsta = Object.keys(gruposOrdenados).some(k => k.toLowerCase() === emp.toLowerCase());
+             if(!yaEsta) {
+                gruposOrdenados[emp] = grupos[emp].sort((a,b) => a.proyecto.name.localeCompare(b.proyecto.name));
+             }
+        }
+    });
+
+    return { gruposPorEmpresa: gruposOrdenados };
+
+  }, [proyectos, eventos, filtroMes, filtroWorker]);
+
+
+  // --- ABRIR MODAL ---
+  const handleEditClick = (item, e) => {
+    e.stopPropagation();
+    
+    const esPendiente = item.tipo === 'pendiente';
+    const proyectoData = item.proyecto;
+    const eventoData = item.evento;
+
+    setEmpresaSeleccionadaModal(proyectoData.company || "");
+    setEditId(esPendiente ? null : eventoData.id);
+
+    setForm({
+      project_id: proyectoData.id,
+      place: eventoData.place || "", 
+      event_date: eventoData.event_date || "", 
+      setup_date: eventoData.setup_date || "", 
+      dismantle_date: eventoData.dismantle_date || "",
+      coord_project_id: eventoData.coord_project_id || "", 
+      coord_prod_id: eventoData.coord_prod_id || "",
+      team_setup: eventoData.team_setup || "", 
+      team_dismantle: eventoData.team_dismantle || "",
+      setup_vehicle: eventoData.setup_vehicle || "", 
+      dismantle_vehicle: eventoData.dismantle_vehicle || ""
+    });
+
     const nochesNormalizadas = {};
-    if (ev.staff_detalle) {
-      Object.entries(ev.staff_detalle).forEach(([id, val]) => {
+    if (eventoData.staff_detalle) {
+      Object.entries(eventoData.staff_detalle).forEach(([id, val]) => {
         nochesNormalizadas[id.toString()] = val;
       });
     }
@@ -156,6 +186,7 @@ const Division = () => {
     });
   };
 
+  // --- GUARDAR ---
   const saveEvento = async () => {
     if (!form.project_id || !form.event_date) return alert("Proyecto y Fecha son obligatorios");
     
@@ -178,57 +209,51 @@ const Division = () => {
     } catch (err) { alert("Error de red"); }
   };
 
-  const empresasModal = [...new Set(proyectos.map(p => p.company))].sort();
-
   if (loading) return <div className="min-h-screen bg-[#fdc436] flex items-center justify-center font-black uppercase text-xs">Cargando División...</div>;
 
-const handleExportarDivision = (formato, alcance, fechaExport) => {
-    let filtrados = eventos;
+  // --- EXPORTACIÓN ---
+  const handleExportarDivision = (formato, alcance, fechaExport) => {
+    let eventosReales = eventos; 
     let tituloPeriodo = "Historial Logística Completo";
 
     if (alcance === "mes") {
         const mesAFiltrar = fechaExport || filtroMes;
         if (!mesAFiltrar) return alert("🐵 Selecciona un mes.");
         const mesID = mesAFiltrar.substring(0, 7);
-        filtrados = eventos.filter(ev => ev.event_date?.startsWith(mesID));
+        eventosReales = eventos.filter(ev => ev.event_date?.startsWith(mesID));
         tituloPeriodo = `Logística ${mesID}`;
     }
 
-    const datosOrdenados = [...filtrados].sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
+    const datosOrdenados = [...eventosReales].sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
 
     if (formato === "csv") {
-        const headers = ["FECHA", "EMPRESA", "PROYECTO", "STAFF_DETALLE", "TOTAL_NOCHES", "PR", "PD", "MONTAJE", "EQUIPO_M", "DESMONTAJE", "EQUIPO_D"];
-        
+        const headers = ["FECHA", "EMPRESA", "PROYECTO", "LUGAR", "STAFF_DETALLE", "TOTAL_NOCHES", "PR", "PD", "MONTAJE", "EQUIPO_M", "DESMONTAJE", "EQUIPO_D"];
         const rows = datosOrdenados.map(ev => {
             const p = proyectos.find(proj => proj.id == ev.project_id);
             const clean = (t) => `"${(t || "").toString().replace(/;/g, ',').replace(/"/g, '""')}"`;
-
-            // --- LÓGICA PARA LAS NOCHES POR EMPLEADO ---
             let detalleStaffStr = "";
             if (ev.staff_detalle && Object.keys(ev.staff_detalle).length > 0) {
                 detalleStaffStr = Object.entries(ev.staff_detalle)
                     .map(([wId, n]) => {
                         const t = trabajadores.find(trab => trab.id.toString() === wId.toString());
                         return `${t ? t.name : 'Staff'}: ${n}🌙`;
-                    })
-                    .join(", "); // Ejemplo: "Juan: 2🌙, Pedro: 1🌙"
+                    }).join(", ");
             }
-
             return [
-                ev.event_date,
-                clean(p?.company || "—"),
-                clean(ev.nombre_evento || p?.name),
-                clean(detalleStaffStr), // <--- AQUÍ SALEN LAS NOCHES POR EMPLEADO
+                ev.event_date, 
+                clean(p?.company || "—"), 
+                clean(ev.nombre_evento || p?.name), 
+                clean(ev.place || ""), 
+                clean(detalleStaffStr), 
                 ev.noches_totales || 0,
-                clean(ev.coordinador_proyecto),
-                clean(ev.coordinador_produccion),
+                clean(ev.coordinador_proyecto), 
+                clean(ev.coordinador_produccion), 
                 clean(`${ev.setup_date} (${ev.setup_vehicle})`),
-                clean(ev.team_setup),
-                clean(`${ev.dismantle_date} (${ev.dismantle_vehicle})`),
+                clean(ev.team_setup), 
+                clean(`${ev.dismantle_date} (${ev.dismantle_vehicle})`), 
                 clean(ev.team_dismantle)
             ];
         });
-
         const csvContent = "\ufeff" + [headers.join(";"), ...rows.map(e => e.join(";"))].join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
@@ -241,7 +266,6 @@ const handleExportarDivision = (formato, alcance, fechaExport) => {
     if (formato === "pdf") {
         const ventana = window.open('', '_blank');
         if (!ventana) return alert("Bloqueador de ventanas activo 🐵");
-
         ventana.document.write(`
           <html>
             <head>
@@ -262,66 +286,37 @@ const handleExportarDivision = (formato, alcance, fechaExport) => {
               <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
                 <div class="flex items-center gap-3">
                   <span class="text-4xl">🐵</span>
-                  <div>
-                    <h1 class="text-xl font-black tracking-tighter text-slate-900">MonoGnomo</h1>
-                    <p class="text-[7px] font-black uppercase tracking-[0.4em] text-yellow-500">Logística e Informe de Equipo</p>
-                  </div>
+                  <div><h1 class="text-xl font-black tracking-tighter text-slate-900">MonoGnomo</h1><p class="text-[7px] font-black uppercase tracking-[0.4em] text-yellow-500">Logística e Informe de Equipo</p></div>
                 </div>
-                <div class="text-right">
-                  <p class="text-[12px] font-bold text-slate-700 capitalize">${tituloPeriodo}</p>
-                </div>
+                <div class="text-right"><p class="text-[12px] font-bold text-slate-700 capitalize">${tituloPeriodo}</p></div>
               </div>
-
               <table>
-                <thead>
-                  <tr>
-                    <th style="width: 8%">Fecha</th>
-                    <th style="width: 22%">Proyecto / Coordinación</th>
-                    <th style="width: 25%">Staff y Noches</th>
-                    <th style="width: 22%">Montaje / Equipo</th>
-                    <th style="width: 23%">Desmontaje / Equipo</th>
-                  </tr>
-                </thead>
+                <thead><tr><th style="width: 8%">Fecha</th><th style="width: 22%">Proyecto / Lugar</th><th style="width: 25%">Staff y Noches</th><th style="width: 22%">Montaje / Equipo</th><th style="width: 23%">Desmontaje / Equipo</th></tr></thead>
                 <tbody>
                   ${datosOrdenados.map(ev => {
                     const p = proyectos.find(proj => proj.id == ev.project_id);
-                    return `
-                      <tr>
+                    return `<tr>
                         <td class="font-bold text-slate-400">${ev.event_date}</td>
                         <td>
-                          <div class="font-black text-slate-900 uppercase text-[10px] mb-1">${ev.nombre_evento || p?.name}</div>
-                          <div class="text-[8px] text-slate-500">PR: ${ev.coordinador_proyecto || "—"}</div>
-                          <div class="text-[8px] text-slate-500">PD: ${ev.coordinador_produccion || "—"}</div>
+                            <div class="font-black text-slate-900 uppercase text-[10px] mb-1">${ev.nombre_evento || p?.name}</div>
+                            ${ev.place ? `<div class="text-[8px] font-bold text-blue-500 uppercase mb-1">📍 ${ev.place}</div>` : ''}
+                            <div class="text-[8px] text-slate-500">PR: ${ev.coordinador_proyecto || "—"}</div>
+                            <div class="text-[8px] text-slate-500">PD: ${ev.coordinador_produccion || "—"}</div>
                         </td>
-                        <td>
-                          <div class="text-slate-600 mb-1 leading-tight">${ev.desglose_noches || "—"}</div>
-                          ${ev.noches_totales > 0 ? `<span class="badge">🌙 TOTAL: ${ev.noches_totales}</span>` : ''}
-                        </td>
-                        <td>
-                          <div class="text-[9px] font-bold text-blue-600">${ev.setup_date || "—"}</div>
-                          <div class="text-[9px] font-black text-slate-700 mt-1">🚚 ${ev.setup_vehicle || "—"}</div>
-                          <div class="team-note">${ev.team_setup || "—"}</div>
-                        </td>
-                        <td>
-                          <div class="text-[9px] font-bold text-purple-600">${ev.dismantle_date || "—"}</div>
-                          <div class="text-[9px] font-black text-slate-700 mt-1">🚚 ${ev.dismantle_vehicle || "—"}</div>
-                          <div class="team-note">${ev.team_dismantle || "—"}</div>
-                        </td>
-                      </tr>
-                    `;
+                        <td><div class="text-slate-600 mb-1 leading-tight">${ev.desglose_noches || "—"}</div>${ev.noches_totales > 0 ? `<span class="badge">🌙 TOTAL: ${ev.noches_totales}</span>` : ''}</td>
+                        <td><div class="text-[9px] font-bold text-blue-600">${ev.setup_date || "—"}</div><div class="text-[9px] font-black text-slate-700 mt-1">🚚 ${ev.setup_vehicle || "—"}</div><div class="team-note">${ev.team_setup || "—"}</div></td>
+                        <td><div class="text-[9px] font-bold text-purple-600">${ev.dismantle_date || "—"}</div><div class="text-[9px] font-black text-slate-700 mt-1">🚚 ${ev.dismantle_vehicle || "—"}</div><div class="team-note">${ev.team_dismantle || "—"}</div></td>
+                      </tr>`;
                   }).join('')}
                 </tbody>
               </table>
-
-              <div class="mt-8 no-print flex justify-center">
-                <button onclick="window.print()" class="bg-black text-white px-8 py-3 rounded-full font-black uppercase text-[9px] tracking-widest shadow-xl active:scale-95 transition-all">Generar PDF</button>
-              </div>
+              <div class="mt-8 no-print flex justify-center"><button onclick="window.print()" class="bg-black text-white px-8 py-3 rounded-full font-black uppercase text-[9px] tracking-widest shadow-xl">Generar PDF</button></div>
             </body>
-          </html>
-        `);
+          </html>`);
         ventana.document.close();
     }
-};
+  };
+
   return (
     <div className="bg-[#fdc436] min-h-screen p-0 sm:p-4 flex justify-center font-sans">
       <div className="w-full space-y-6 bg-transparent sm:bg-white/50 sm:p-6 sm:rounded-xl sm:shadow-lg sm:max-w-4xl sm:mx-auto">
@@ -335,222 +330,222 @@ const handleExportarDivision = (formato, alcance, fechaExport) => {
           </select>
         </div>
 
-        <button onClick={() => { setEditId(null); setForm(initialForm); setNochesPorTrabajador({}); setEmpresaSeleccionadaModal(""); setShowModalEvento(true); }} className="bg-gray-400 text-white w-full py-4 rounded-xl text-[10px] font-black uppercase shadow-md active:scale-95 transition-all">+ Nuevo Evento</button>
-
+        {/* LISTADO DE PROYECTOS */}
         <div className="space-y-6">
+          {Object.keys(gruposPorEmpresa).length === 0 && (
+              <div className="text-center py-10 opacity-50 font-bold uppercase text-xs">No hay proyectos para este mes</div>
+          )}
+
           {Object.keys(gruposPorEmpresa).map((empresa) => (
             <div key={empresa} className="space-y-2 text-left">
               <h3 className="text-[9px] font-black uppercase text-black/40 pl-2 tracking-widest">{empresa}</h3>
-              {gruposPorEmpresa[empresa].map((ev, i) => (
-                <div key={ev.id} className="bg-white rounded-xl overflow-hidden shadow-sm">
-                  <div className="p-4 flex justify-between items-center cursor-pointer" style={{borderLeft: `6px solid ${PALETA_PASTEL[i % PALETA_PASTEL.length]}`}} onClick={() => setExpandido({...expandido, [ev.id]: !expandido[ev.id]})}>
-                    <div className="flex flex-col max-w-[65%]">
+              
+              {gruposPorEmpresa[empresa].map((item, i) => {
+                const { tipo, proyecto, evento } = item;
+                const esCompleto = tipo === 'completo'; 
+                const idUnico = esCompleto ? evento.id : `pend_${proyecto.id}`;
+                
+                const colorBorde = esCompleto ? PALETA_PASTEL[i % PALETA_PASTEL.length] : '#e5e7eb';
+                const estiloOpacidad = esCompleto ? 'opacity-100' : 'opacity-60 grayscale-[0.5]';
+
+                return (
+                <div key={idUnico} className={`bg-white rounded-xl overflow-hidden shadow-sm transition-all ${estiloOpacidad}`}>
+                  <div 
+                    className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50" 
+                    style={{borderLeft: `6px solid ${colorBorde}`}} 
+                    onClick={() => esCompleto ? setExpandido({...expandido, [idUnico]: !expandido[idUnico]}) : handleEditClick(item, {stopPropagation:()=>{}})}
+                  >
+                    {/* AQUÍ ESTÁ EL CAMBIO VISUAL PARA MÓVIL: Flex-1 y min-w-0 */}
+                    <div className="flex flex-col flex-1 min-w-0 mr-2">
                       <div className="flex items-center gap-2">
-                        {ev.noches_totales > 0 && <span>🌙</span>}
-                        <span className="font-black text-[10px] uppercase text-gray-800 truncate">{ev.nombre_evento}</span>
+                        {esCompleto && evento.noches_totales > 0 && <span>🌙</span>}
+                        {!esCompleto && <span className="text-[9px] bg-gray-100 text-gray-500 px-1 rounded shrink-0">PENDIENTE</span>}
+                        {/* El truncate funcionará porque el padre tiene min-w-0 */}
+                        <span className="font-black text-[10px] uppercase text-gray-800 truncate">
+                            {esCompleto ? (evento.nombre_evento || proyecto.name) : proyecto.name}
+                        </span>
                       </div>
-                      <span className="text-[9px] text-gray-400 font-bold uppercase">{ev.event_date}</span>
+                      <span className="text-[9px] text-gray-400 font-bold uppercase">
+                        {esCompleto ? evento.event_date : "Sin Logística"}
+                      </span>
+                      {esCompleto && evento.place && (
+                          <span className="text-[8px] text-blue-400 font-black uppercase mt-0.5 block truncate">
+                              📍 {evento.place}
+                          </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button onClick={(e) => handleEditClick(ev, e)} className="p-2 opacity-40 hover:opacity-100 transition-all">✏️</button>
-                      <button onClick={(e) => { e.stopPropagation(); deleteEvento(ev.id, ev.nombre_evento); }} className="p-2 opacity-40 hover:opacity-100 transition-all hover:text-red-500">🗑️</button>
-                      <span className="text-gray-300 text-xl font-light w-8 text-center">{expandido[ev.id] ? "−" : "+"}</span>
+                    
+                    {/* Botones con shrink-0 para que no se aplasten */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button 
+                        onClick={(e) => handleEditClick(item, e)} 
+                        className={`p-2 rounded-full transition-all ${esCompleto ? 'text-gray-400 hover:text-blue-500 hover:bg-blue-50' : 'text-blue-600 bg-blue-50 hover:bg-blue-100 font-bold text-[9px] px-3 shadow-sm'}`}
+                      >
+                        {esCompleto ? '✏️' : '+ AÑADIR'}
+                      </button>
+
+                      {esCompleto && (
+                        <>
+                            <button onClick={(e) => { e.stopPropagation(); deleteEvento(evento.id, proyecto.name); }} className="p-2 opacity-40 hover:opacity-100 transition-all hover:text-red-500">🗑️</button>
+                            <span className="text-gray-300 text-xl font-light w-8 text-center">{expandido[idUnico] ? "−" : "+"}</span>
+                        </>
+                      )}
                     </div>
                   </div>
-                 {expandido[ev.id] && (
-  <div className="p-4 text-[10px] space-y-4 bg-gray-50/50 border-t border-gray-100">
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {/* COLUMNA IZQUIERDA: FECHA PRINCIPAL Y COORDINACIÓN */}
-      <div>
-        <div className="mb-3 p-2 bg-white rounded-lg border border-gray-100 shadow-sm">
-           <p className="text-gray-400 font-black uppercase text-[7px] mb-0.5">📅 Fecha del Evento</p>
-           <p className="font-bold text-gray-800 text-[11px]">{ev.event_date || "—"}</p>
-        </div>
-        <p className="text-gray-400 font-black uppercase text-[8px] mb-1">Coordinación</p>
-        <p className="font-bold text-gray-700">PR: {ev.coordinador_proyecto || "—"}</p>
-        <p className="font-bold text-gray-700">PD: {ev.coordinador_produccion || "—"}</p>
-      </div>
-      
-      {/* COLUMNA DERECHA: STAFF Y NOCHES DETALLADAS */}
-      <div>
-        <p className="text-amber-600 font-black uppercase text-[8px] mb-1">Staff y Noches</p>
-        <div className="flex flex-wrap gap-1">
-          {ev.staff_detalle && Object.keys(ev.staff_detalle).length > 0 ? (
-            Object.entries(ev.staff_detalle).map(([wId, n]) => {
-              const trabajador = trabajadores.find(t => t.id.toString() === wId.toString());
-              const nochesReal = parseInt(n) || 0; 
-              return (
-                <div key={wId} className="bg-amber-100 text-amber-800 px-2 py-1 rounded-md font-bold text-[10px] border border-amber-200 flex items-center gap-1">
-                  {trabajador ? trabajador.name : 'Staff'}: 
-                  <span className="text-amber-900">{nochesReal} 🌙</span>
+
+                  {esCompleto && expandido[idUnico] && (
+                    <div className="p-4 text-[10px] space-y-4 bg-gray-50/50 border-t border-gray-100 animate-in slide-in-from-top-2 duration-200">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <div className="mb-3 p-2 bg-white rounded-lg border border-gray-100 shadow-sm">
+                                    <p className="text-gray-400 font-black uppercase text-[7px] mb-0.5">📅 Fecha del Evento</p>
+                                    <p className="font-bold text-gray-800 text-[11px]">{evento.event_date || "—"}</p>
+                                    {evento.place && (
+                                        <p className="text-[9px] font-black text-blue-500 uppercase mt-1">📍 {evento.place}</p>
+                                    )}
+                                </div>
+                                <p className="text-gray-400 font-black uppercase text-[8px] mb-1">Coordinación</p>
+                                <p className="font-bold text-gray-700">PR: {evento.coordinador_proyecto || "—"}</p>
+                                <p className="font-bold text-gray-700">PD: {evento.coordinador_produccion || "—"}</p>
+                            </div>
+                            <div>
+                                <p className="text-amber-600 font-black uppercase text-[8px] mb-1">Staff y Noches</p>
+                                <div className="flex flex-wrap gap-1">
+                                {evento.staff_detalle && Object.keys(evento.staff_detalle).length > 0 ? (
+                                    Object.entries(evento.staff_detalle).map(([wId, n]) => {
+                                    const trabajador = trabajadores.find(t => t.id.toString() === wId.toString());
+                                    return (
+                                        <div key={wId} className="bg-amber-100 text-amber-800 px-2 py-1 rounded-md font-bold text-[10px] border border-amber-200 flex items-center gap-1">
+                                        {trabajador ? trabajador.name : 'Staff'}: <span className="text-amber-900">{parseInt(n)||0} 🌙</span>
+                                        </div>
+                                    );
+                                    })
+                                ) : <p className="font-bold italic text-gray-400 leading-tight">— Sin staff —</p>}
+                                </div>
+                                {evento.noches_totales > 0 && <p className="mt-2 text-amber-700 uppercase text-[7px] font-black">Total: {evento.noches_totales} noches</p>}
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-blue-50 p-2 rounded-lg border border-blue-100">
+                                <span className="text-blue-600 font-black text-[7px] uppercase block mb-1">Montaje ({evento.setup_date || "S/F"})</span>
+                                <p className="font-bold text-blue-900 leading-tight">🚚 {evento.setup_vehicle || "—"}</p>
+                                <p className="text-[8px] mt-1 text-blue-800/60 whitespace-pre-wrap">{evento.team_setup}</p>
+                            </div>
+                            <div className="bg-purple-50 p-2 rounded-lg border border-purple-100">
+                                <span className="text-purple-600 font-black text-[7px] uppercase block mb-1">Desmontaje ({evento.dismantle_date || "S/F"})</span>
+                                <p className="font-bold text-purple-900 leading-tight">🚚 {evento.dismantle_vehicle || "—"}</p>
+                                <p className="text-[8px] mt-1 text-purple-800/60 whitespace-pre-wrap">{evento.team_dismantle}</p>
+                            </div>
+                        </div>
+                    </div>
+                  )}
                 </div>
               );
-            })
-          ) : (
-            <p className="font-bold italic text-gray-400 leading-tight">— Sin staff registrado —</p>
-          )}
-        </div>
-        {ev.noches_totales > 0 && (
-          <p className="mt-2 text-amber-700 uppercase text-[7px] font-black">
-            Total: {ev.noches_totales} {ev.noches_totales === 1 ? 'noche' : 'noches'}
-          </p>
-        )}
-      </div>
-    </div>
-
-    {/* BLOQUES DE LOGÍSTICA: Con las fechas específicas de la base de datos */}
-    <div className="grid grid-cols-2 gap-2">
-      {/* Montaje con su fecha */}
-      <div className="bg-blue-50 p-2 rounded-lg border border-blue-100">
-        <div className="flex justify-between items-start mb-1">
-          <span className="text-blue-600 font-black text-[7px] uppercase">Montaje</span>
-          <span className="text-[7px] font-bold text-blue-400 bg-white px-1.5 py-0.5 rounded border border-blue-100">
-            {ev.setup_date || "S/F"}
-          </span>
-        </div>
-        <p className="font-bold text-blue-900 leading-tight">🚚 {ev.setup_vehicle || "—"}</p>
-        <p className="text-[8px] mt-1 text-blue-800/60 whitespace-pre-wrap">{ev.team_setup}</p>
-      </div>
-
-      {/* Desmontaje con su fecha */}
-      <div className="bg-purple-50 p-2 rounded-lg border border-purple-100">
-        <div className="flex justify-between items-start mb-1">
-          <span className="text-purple-600 font-black text-[7px] uppercase">Desmontaje</span>
-          <span className="text-[7px] font-bold text-purple-400 bg-white px-1.5 py-0.5 rounded border border-purple-100">
-            {ev.dismantle_date || "S/F"}
-          </span>
-        </div>
-        <p className="font-bold text-purple-900 leading-tight">🚚 {ev.dismantle_vehicle || "—"}</p>
-        <p className="text-[8px] mt-1 text-purple-800/60 whitespace-pre-wrap">{ev.team_dismantle}</p>
-      </div>
-    </div>
-  </div>
-)}
-                </div>
-              ))}
+             })}
             </div>
           ))}
         </div>
         <div className="pt-4 flex justify-center">
-          <Exportacion onExport={handleExportarDivision} tipo="division" />
-      </div>
+           <Exportacion onExport={handleExportarDivision} tipo="division" />
+        </div>
     </div>
 
       {showModalEvento && (
-  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-100 flex items-end sm:items-center justify-center font-sans text-left">
-    <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl">
-      <div className="flex justify-between items-center mb-6">
-          <h2 className="text-sm font-black uppercase tracking-tight">{editId ? 'Editar Evento' : 'Nuevo Evento'}</h2>
-          <button onClick={() => setShowModalEvento(false)} className="text-gray-400 text-xl">✕</button>
-      </div>
-      
-      <div className="space-y-4">
-        {/* EMPRESA Y PROYECTO */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1">
-              <label className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Empresa</label>
-              <select className="p-3 bg-gray-100 rounded-xl text-xs font-bold outline-none" value={empresaSeleccionadaModal} onChange={e => {setEmpresaSeleccionadaModal(e.target.value); setForm({...form, project_id:""})}}>
-                <option value="">Seleccionar empresa...</option>
-                {empresasModal.map(e => <option key={e} value={e}>{e}</option>)}
-              </select>
-          </div>
-          <div className="flex flex-col gap-1">
-  <label className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Proyecto</label>
-  <select 
-    className="p-3 bg-gray-100 rounded-xl text-xs font-bold outline-none" 
-    value={form.project_id} 
-    onChange={e => setForm({...form, project_id: e.target.value})}
-  >
-    <option value="">Seleccionar proyecto...</option>
-    {/* Explicación:
-        1. Filtramos proyectos por la empresa elegida en el modal.
-        2. Creamos un Map usando el ID como clave para que no haya duplicados.
-        3. Convertimos los valores del Map en un Array para hacer el .map()
-    */}
-    {Array.from(new Map(
-      proyectos
-        .filter(p => p.company === empresaSeleccionadaModal)
-        .map(p => [p.id, p])
-    ).values()).map(p => (
-      <option key={p.id} value={p.id}>{p.name}</option>
-    ))}
-  </select>
-</div>
-        </div>
-
-        {/* FECHA PRINCIPAL (OBLIGATORIA) */}
-        <div className="flex flex-col gap-1 bg-amber-50 p-3 rounded-2xl border border-amber-100">
-            <label className="text-[8px] font-black uppercase text-amber-600 tracking-widest">📅 Fecha Principal del Evento</label>
-            <input 
-              type="date" 
-              className="p-2 bg-white rounded-lg text-xs font-bold outline-none border border-amber-200"
-              value={form.event_date}
-              onChange={e => setForm({...form, event_date: e.target.value})}
-            />
-        </div>
-
-        {/* COORDINADORES */}
-        <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-2xl">
-            <div className="flex flex-col gap-1">
-                <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PR</label>
-                <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_project_id} onChange={e => setForm({...form, coord_project_id: e.target.value})}>
-                    <option value="">Sin asignar</option>
-                    {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center font-sans text-left">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-sm font-black uppercase tracking-tight">
+                    {editId ? 'Editar Logística' : 'Añadir Logística a Proyecto'}
+                </h2>
+                <button onClick={() => setShowModalEvento(false)} className="text-gray-400 text-xl">✕</button>
             </div>
-            <div className="flex flex-col gap-1">
-                <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PD</label>
-                <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_prod_id} onChange={e => setForm({...form, coord_prod_id: e.target.value})}>
-                    <option value="">Sin asignar</option>
-                    {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-            </div>
-        </div>
-
-              <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
-                <label className="text-blue-600 uppercase text-[8px] font-black block mb-3 text-center tracking-widest underline">MonoGnomos y Noches</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {trabajadores.map(t => {
-                        const tId = t.id.toString();
-                        const estaActivo = nochesPorTrabajador[tId] !== undefined;
-                        return (
-                          <div key={tId} className={`p-2 rounded-xl border flex flex-col gap-2 transition-all ${estaActivo ? 'bg-white border-blue-400 shadow-sm' : 'bg-transparent border-gray-100 opacity-60'}`}>
-                            <button type="button" onClick={() => toggleTrabajador(tId)} className="text-[8px] font-black uppercase text-left truncate">
-                              {estaActivo ? '✅ ' : ''}{t.name}
-                            </button>
-                            {estaActivo && (
-                              <div className="flex items-center gap-1 bg-blue-50 rounded-lg p-1">
-                                <span className="text-[7px] font-black text-blue-400">🌙</span>
-                                <input 
-                                  type="number" 
-                                  className="w-full bg-transparent text-[11px] font-bold outline-none text-blue-700"
-                                  value={nochesPorTrabajador[tId]}
-                                  onChange={(e) => setNochesPorTrabajador({...nochesPorTrabajador, [tId]: e.target.value})}
-                                  min="0"
-                                />
-                              </div>
-                            )}
-                          </div>
-                        );
-                    })}
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 opacity-70 pointer-events-none grayscale">
+                <div className="flex flex-col gap-1">
+                    <label className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Empresa</label>
+                    <select className="p-3 bg-gray-100 rounded-xl text-xs font-bold outline-none" value={empresaSeleccionadaModal} readOnly>
+                        <option value={empresaSeleccionadaModal}>{empresaSeleccionadaModal}</option>
+                    </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                    <label className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Proyecto</label>
+                    <select className="p-3 bg-gray-100 rounded-xl text-xs font-bold outline-none" value={form.project_id} readOnly>
+                        {proyectos.filter(p => p.id == form.project_id).map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                    </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2 text-left">
-                    <label className="text-[8px] font-black uppercase text-blue-500 tracking-widest">Montaje</label>
-                    <input className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold" type="date" value={form.setup_date} onChange={e => setForm({...form, setup_date: e.target.value})} />
-                    <input className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold" placeholder="Vehículo" type="text" value={form.setup_vehicle} onChange={e => setForm({...form, setup_vehicle: e.target.value})} />
-                    <textarea className="w-full p-2 bg-gray-50 rounded-lg text-xs h-16 outline-none font-bold" placeholder="Notas montaje..." value={form.team_setup} onChange={e => setForm({...form, team_setup: e.target.value})} />
-                </div>
-                <div className="space-y-2 text-left">
-                    <label className="text-[8px] font-black uppercase text-purple-500 tracking-widest">Desmontaje</label>
-                    <input className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold" type="date" value={form.dismantle_date} onChange={e => setForm({...form, dismantle_date: e.target.value})} />
-                    <input className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold" placeholder="Vehículo" type="text" value={form.dismantle_vehicle} onChange={e => setForm({...form, dismantle_vehicle: e.target.value})} />
-                    <textarea className="w-full p-2 bg-gray-50 rounded-lg text-xs h-16 outline-none font-bold" placeholder="Notas desmontaje..." value={form.team_dismantle} onChange={e => setForm({...form, team_dismantle: e.target.value})} />
-                </div>
+              {/* === NUEVO CAMPO: LUGAR DEL EVENTO === */}
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1 bg-amber-50 p-3 rounded-2xl border border-amber-100">
+                      <label className="text-[8px] font-black uppercase text-amber-600 tracking-widest">📅 Fecha Principal</label>
+                      <input type="date" className="p-2 bg-white rounded-lg text-xs font-bold outline-none border border-amber-200" value={form.event_date} onChange={e => setForm({...form, event_date: e.target.value})} />
+                  </div>
+                  <div className="flex flex-col gap-1 bg-gray-50 p-3 rounded-2xl border border-gray-100">
+                      <label className="text-[8px] font-black uppercase text-gray-400 tracking-widest">📍 Lugar</label>
+                      <input type="text" className="p-2 bg-white rounded-lg text-xs font-bold outline-none border border-gray-200" placeholder="Ej: Madrid, IFEMA..." value={form.place} onChange={e => setForm({...form, place: e.target.value})} />
+                  </div>
               </div>
-              <button onClick={saveEvento} className="bg-black text-white w-full py-4 rounded-xl text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all">Guardar Evento</button>
+
+               <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-2xl">
+                   <div className="flex flex-col gap-1">
+                       <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PR</label>
+                       <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_project_id} onChange={e => setForm({...form, coord_project_id: e.target.value})}>
+                           <option value="">Sin asignar</option>
+                           {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                       </select>
+                   </div>
+                   <div className="flex flex-col gap-1">
+                       <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PD</label>
+                       <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_prod_id} onChange={e => setForm({...form, coord_prod_id: e.target.value})}>
+                           <option value="">Sin asignar</option>
+                           {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                       </select>
+                   </div>
+               </div>
+
+                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
+                    <label className="text-blue-600 uppercase text-[8px] font-black block mb-3 text-center tracking-widest underline">MonoGnomos y Noches</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {trabajadores.map(t => {
+                            const tId = t.id.toString();
+                            const estaActivo = nochesPorTrabajador[tId] !== undefined;
+                            return (
+                                <div key={tId} className={`p-2 rounded-xl border flex flex-col gap-2 transition-all ${estaActivo ? 'bg-white border-blue-400 shadow-sm' : 'bg-transparent border-gray-100 opacity-60'}`}>
+                                    <button type="button" onClick={() => toggleTrabajador(tId)} className="text-[8px] font-black uppercase text-left truncate">{estaActivo ? '✅ ' : ''}{t.name}</button>
+                                    {estaActivo && (
+                                        <div className="flex items-center gap-1 bg-blue-50 rounded-lg p-1">
+                                            <span className="text-[7px] font-black text-blue-400">🌙</span>
+                                            <input type="number" className="w-full bg-transparent text-[11px] font-bold outline-none text-blue-700" value={nochesPorTrabajador[tId]} onChange={(e) => setNochesPorTrabajador({...nochesPorTrabajador, [tId]: e.target.value})} min="0" />
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2 text-left">
+                        <label className="text-[8px] font-black uppercase text-blue-500 tracking-widest">Montaje</label>
+                        <input className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold" type="date" value={form.setup_date} onChange={e => setForm({...form, setup_date: e.target.value})} />
+                        <input className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold" placeholder="Vehículo" type="text" value={form.setup_vehicle} onChange={e => setForm({...form, setup_vehicle: e.target.value})} />
+                        <textarea className="w-full p-2 bg-gray-50 rounded-lg text-xs h-16 outline-none font-bold" placeholder="Notas montaje..." value={form.team_setup} onChange={e => setForm({...form, team_setup: e.target.value})} />
+                    </div>
+                    <div className="space-y-2 text-left">
+                        <label className="text-[8px] font-black uppercase text-purple-500 tracking-widest">Desmontaje</label>
+                        <input className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold" type="date" value={form.dismantle_date} onChange={e => setForm({...form, dismantle_date: e.target.value})} />
+                        <input className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold" placeholder="Vehículo" type="text" value={form.dismantle_vehicle} onChange={e => setForm({...form, dismantle_vehicle: e.target.value})} />
+                        <textarea className="w-full p-2 bg-gray-50 rounded-lg text-xs h-16 outline-none font-bold" placeholder="Notas desmontaje..." value={form.team_dismantle} onChange={e => setForm({...form, team_dismantle: e.target.value})} />
+                    </div>
+                </div>
+
+              <button onClick={saveEvento} className="bg-black text-white w-full py-4 rounded-xl text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all">
+                {editId ? "Actualizar Logística" : "Crear Logística"}
+              </button>
             </div>
           </div>
         </div>
