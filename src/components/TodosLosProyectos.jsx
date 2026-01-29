@@ -49,7 +49,6 @@ const ORDEN_PRIORIDAD = [
   "Yurmuvi",
   "Guardianes", 
   "Escuela Energía", 
-  "Escuela Energia", 
   "Castrillo2",
   "General"
 ];
