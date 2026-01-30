@@ -45,12 +45,10 @@ const formatDisplayTime = (val) => {
 const ORDEN_PRIORIDAD = [
   "Monognomo", 
   "Neozink", 
-  "Picofino", 
-  "Yurmuvi",
-  "Guardianes", 
-  "Escuela Energía", 
+  "Yurmuvi",  
+  "Picofino",
   "Castrillo2",
-  "General"
+  "EDP"
 ];
 
 const sortEmpresas = (a, b) => {

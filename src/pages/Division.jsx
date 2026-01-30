@@ -73,19 +73,24 @@ const Division = () => {
     const proyectosUnicos = new Map();
     
     proyectos.forEach(p => {
-        const esProyectoVacio = !p.month_key; 
         const mesBD = String(p.month_key || "").replace(/-/g, "").trim();
         
         // --- MODIFICACIÓN AQUÍ: EXCLUIR SIEMPRE ACTIVO ---
         if (mesBD === "999912") return; 
         // -------------------------------------------------
 
-        const coincideMes = mesBD === mesBuscado; // Se eliminó la condición OR
+        const coincideMes = mesBD === mesBuscado; 
         const pExistente = proyectosUnicos.get(p.id);
 
+        // --- CORRECCIÓN DE LOGISTICA ---
+        // Recuperamos el evento específico para este proyecto
+        const eventoData = mapaEventos.get(p.id.toString());
+        // Verificamos si existe Y si su fecha pertenece al mes seleccionado
+        const eventoCaeEnEsteMes = eventoData && eventoData.event_date && eventoData.event_date.startsWith(filtroMes);
+
         if (!pExistente) {
-            const tieneEvento = mapaEventos.has(p.id.toString());
-            if (coincideMes || esProyectoVacio || tieneEvento) {
+            // Se muestra si el proyecto es del mes O si tiene logística en este mes
+            if (coincideMes || eventoCaeEnEsteMes) {
                 proyectosUnicos.set(p.id, p);
             }
         } else {
