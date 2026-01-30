@@ -6,12 +6,10 @@ const PALETA_PASTEL = ["#F0F4FF", "#F5F5DC", "#E6FFFA", "#FFF5F5", "#FAF5FF", "#
 const ORDEN_PRIORIDAD = [
   "Monognomo", 
   "Neozink", 
+  "Yurmuvi", 
   "Picofino", 
-  "Guardianes", 
-  "Escuela Energía", 
-  "Escuela Energia", 
-  "MANGO", 
-  "General"
+  "Castrillo2", 
+  "EDP"
 ];
 
 //NOS CONVIERTE LOS NÚMEROS EN MES Y AÑO O SIEMPRE ACTIVO
@@ -68,6 +66,22 @@ export default function ProyectosPorMes() {
       } catch (err) { alert("Error de conexión"); }
     }
   };
+
+  // --- NUEVA FUNCIÓN AÑADIDA: AVISO AL ELIMINAR MES ---
+  const handleEliminarMes = (mes) => {
+    const nombreMes = formatearMesAnio(mes);
+    const confirmacion = window.confirm(
+      `¡¡CUIDADO!! ⚠️\n\nVas a eliminar ${nombreMes} de la lista.\n\nSi guardas los cambios, se borrarán TODAS LAS HORAS y registros asociados a este mes de forma permanente.\n\n¿Estás seguro de continuar?`
+    );
+
+    if (confirmacion) {
+      setEditando(prev => ({
+        ...prev, 
+        meses: prev.meses.filter(m => m !== mes)
+      }));
+    }
+  };
+  // ---------------------------------------------------
 
   // FUNCIÓN PARA GESTIONAR EL GUARDADO DE DATOS DE FORMA REAL
   const handleGuardarCambios = async (e) => {
@@ -309,7 +323,8 @@ export default function ProyectosPorMes() {
                   {editando.meses.map(m => (
                     <div key={m} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${m === '9999-12' ? 'bg-yellow-100' : 'bg-gray-100'}`}>
                       <span className="text-[9px] font-bold text-gray-600 uppercase">{formatearMesAnio(m)}</span>
-                      <button type="button" onClick={() => setEditando({...editando, meses: editando.meses.filter(x => x !== m)})} className="text-red-400 font-bold text-lg">&times;</button>
+                      {/* --- AQUÍ ESTÁ EL BOTÓN ACTUALIZADO QUE LLAMA AL AVISO --- */}
+                      <button type="button" onClick={() => handleEliminarMes(m)} className="text-red-400 font-bold text-lg">&times;</button>
                     </div>
                   ))}
                 </div>

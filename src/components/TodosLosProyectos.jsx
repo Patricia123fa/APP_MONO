@@ -61,7 +61,7 @@ const sortEmpresas = (a, b) => {
 
 export default function TodosLosProyectos() {
   const [data, setData] = useState([]);
-  const [proyectosMaestros, setProyectosMaestros] = useState([]); // <-- PARA FILTRO DINÁMICO
+  const [proyectosMaestros, setProyectosMaestros] = useState([]);
   const [workersList, setWorkersList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [abiertos, setAbiertos] = useState({});
@@ -76,6 +76,10 @@ export default function TodosLosProyectos() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [newEntry, setNewEntry] = useState({ worker_id: "", hours: 0, date_work: new Date().toISOString().split('T')[0] });
 
+  // --- ESTADOS PARA EDICIÓN DE NOMBRE ---
+  const [editingProjectId, setEditingProjectId] = useState(null);
+  const [tempProjectName, setTempProjectName] = useState("");
+
   const fetchData = async () => {
     try {
       const [resData, resInit] = await Promise.all([
@@ -89,7 +93,7 @@ export default function TodosLosProyectos() {
       }
       if (initData.success) {
         setWorkersList(initData.trabajadores);
-        setProyectosMaestros(initData.proyectos); // <-- GUARDAMOS LA LISTA MAESTRA
+        setProyectosMaestros(initData.proyectos);
       }
     } catch (err) { console.error(err); } 
     finally { setLoading(false); }
@@ -97,16 +101,45 @@ export default function TodosLosProyectos() {
 
   useEffect(() => { fetchData(); }, []);
 
-  // --- ARREGLO DE KEYS DUPLICADAS Y FILTRO DINÁMICO ---
   const proyectosDisponiblesEnFiltro = useMemo(() => {
-    // Si hay empresa elegida, filtramos de la maestra, si no, de los que tienen datos
     const listaBase = filtroEmpresa 
       ? proyectosMaestros.filter(p => p.company === filtroEmpresa).map(p => p.name)
       : data.map(r => r.name);
-
-    // Quitamos duplicados para evitar el error de consola y ordenamos
     return [...new Set(listaBase)].sort();
   }, [filtroEmpresa, proyectosMaestros, data]);
+
+  // --- FUNCIÓN PARA ACTUALIZAR NOMBRE ---
+  const handleUpdateProjectName = async (projectId) => {
+    if (!tempProjectName.trim()) return alert("El nombre no puede estar vacío");
+    
+    const oldName = proyectosMaestros.find(p => p.id === projectId)?.name;
+
+    // Actualización optimista
+    setData(prev => prev.map(reg => reg.project_id === projectId ? { ...reg, name: tempProjectName } : reg));
+    setProyectosMaestros(prev => prev.map(p => p.id === projectId ? { ...p, name: tempProjectName } : p));
+    setEditingProjectId(null);
+
+    try {
+      const resp = await fetch(`https://registromono.monognomo.com/api.php?action=update_project_name`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: projectId, new_name: tempProjectName })
+      });
+      
+      const resJson = await resp.json();
+      
+      if (!resJson.success) {
+        alert("Error al guardar: " + (resJson.message || "Desconocido"));
+        // Revertir cambios si falla
+        setData(prev => prev.map(reg => reg.project_id === projectId ? { ...reg, name: oldName } : reg));
+        setProyectosMaestros(prev => prev.map(p => p.id === projectId ? { ...p, name: oldName } : p));
+      }
+    } catch (err) {
+      alert("Error de conexión al renombrar");
+      setData(prev => prev.map(reg => reg.project_id === projectId ? { ...reg, name: oldName } : reg));
+      setProyectosMaestros(prev => prev.map(p => p.id === projectId ? { ...p, name: oldName } : p));
+    }
+  };
 
   const handleExportarRegistro = (formato, alcance, fechaExport) => {
     let filtrados = data;
@@ -169,7 +202,7 @@ export default function TodosLosProyectos() {
                 <span class="text-4xl text-left">🐵</span>
                 <div class="text-left">
                   <h1 class="text-2xl font-black tracking-tighter text-slate-900 text-left">MonoGnomo</h1>
-                  <p class="text-[8px] font-black uppercase tracking-[0.4em] text-yellow-500 text-left">Timesheet</p>
+                  <p class="text-[8px] font-black uppercase tracking-[0.4em] text-yellow-500 text-left"></p>
                 </div>
               </div>
               <div class="text-right">
@@ -278,7 +311,10 @@ export default function TodosLosProyectos() {
       const emp = reg.company || "Sin Empresa";
       const proy = reg.name || "Sin Proyecto";
       if (!agrupado[emp]) agrupado[emp] = { name: emp, proyectos: {} };
+      
+      // ID para la edición
       if (!agrupado[emp].proyectos[proy]) agrupado[emp].proyectos[proy] = { name: proy, id: reg.project_id, trabajadores: {} };
+      
       const wk = agrupado[emp].proyectos[proy].trabajadores;
       if (!wk[reg.worker]) wk[reg.worker] = { total: 0, semanas: {} };
       const s = wk[reg.worker].semanas;
@@ -358,8 +394,36 @@ export default function TodosLosProyectos() {
             <div className="grid grid-cols-1 gap-4">
               {Object.values(emp.proyectos).map(p => (
                 <div key={p.name} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  
+                  {/* --- CABECERA (Lápiz ahora visible) --- */}
                   <div className="px-5 py-4 flex justify-between items-center border-l-8" style={{ borderColor: getProjectColor(p.name), backgroundColor: getProjectColor(p.name) }}>
-                    <span className="font-black text-[11px] text-gray-700 uppercase tracking-tight">{p.name}</span>
+                    
+                    {/* NOMBRE O INPUT */}
+                    {editingProjectId === p.id ? (
+                        <div className="flex items-center gap-2 flex-1 mr-4">
+                            <input 
+                                autoFocus
+                                type="text" 
+                                value={tempProjectName} 
+                                onChange={(e) => setTempProjectName(e.target.value)}
+                                className="w-full bg-white/50 border border-gray-300 rounded px-2 py-1 text-[11px] font-black uppercase tracking-tight outline-none focus:bg-white focus:border-blue-400"
+                            />
+                            <button onClick={() => handleUpdateProjectName(p.id)} className="p-1 bg-green-500 text-white rounded text-[10px]">✔</button>
+                            <button onClick={() => setEditingProjectId(null)} className="p-1 bg-red-400 text-white rounded text-[10px]">✕</button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 group cursor-pointer" onClick={() => { setEditingProjectId(p.id); setTempProjectName(p.name); }}>
+                            <span className="font-black text-[11px] text-gray-700 uppercase tracking-tight">{p.name}</span>
+                            <button 
+                                className="text-[10px] text-gray-400 hover:text-gray-700 transition-colors"
+                                title="Editar nombre del proyecto"
+                            >
+                                ✏️
+                            </button>
+                        </div>
+                    )}
+
+                    {/* TOTAL Y BOTÓN AGREGAR */}
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] font-black text-gray-500 bg-white/80 px-2.5 py-1 rounded-lg">
                         {formatDisplayTime(Object.values(p.trabajadores).reduce((acc, curr) => acc + curr.total, 0))}
