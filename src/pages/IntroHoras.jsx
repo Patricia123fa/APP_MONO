@@ -36,6 +36,9 @@ export const IntroHoras = () => {
   const [mensajeConfirmacion, setMensajeConfirmacion] = useState("");
   const [horasRegistradas, setHorasRegistradas] = useState([]);
 
+  // --- NUEVO ESTADO: Controlar modo Diario vs Mensual ---
+  const [modoEntrada, setModoEntrada] = useState("diario"); 
+
   //LLAMADA A LA FUNCIÓN GET_INITIAL_DATA DE NUESTRO API.PHP
   const cargarDatos = () => {
     fetch("https://registromono.monognomo.com/api.php?action=get_initial_data")
@@ -68,7 +71,15 @@ export const IntroHoras = () => {
       return;
     }
 
-    const fechaFormateada = new Date(fechaSeleccionada).toLocaleDateString("en-CA");
+    // --- MODIFICACIÓN AQUÍ: Gestionar fecha mensual ---
+    let fechaFinal = new Date(fechaSeleccionada);
+    if (modoEntrada === "mensual") {
+        // Si es mensual, forzamos el día 1 del mes para que cuente como registro mensual
+        fechaFinal.setDate(1);
+    }
+    const fechaFormateada = fechaFinal.toLocaleDateString("en-CA");
+    // --------------------------------------------------
+
     const datosEnvio = {
       worker_id: empleadoSeleccionado.id,
       project_id: proyectoSeleccionado.id,
@@ -84,7 +95,10 @@ export const IntroHoras = () => {
       .then((res) => res.json())
       .then((resp) => {
         if (resp.success) {
-          setMensajeConfirmacion(`Has guardado ${horas} horas en ${proyectoSeleccionado.name}`);
+          // Ajustamos el mensaje según el modo
+          const tipoTexto = modoEntrada === "mensual" ? "(Mensual)" : "";
+          setMensajeConfirmacion(`Has guardado ${horas} horas ${tipoTexto} en ${proyectoSeleccionado.name}`);
+          
           setHorasRegistradas([
             {
               empleado: empleadoSeleccionado.name,
@@ -94,10 +108,11 @@ export const IntroHoras = () => {
             },
             ...horasRegistradas,
           ]);
-       
+        
           setHoras(0);
           setProyectoSeleccionado(null);
           setMostrarModal(false);
+          setModoEntrada("diario"); // Reseteamos al cerrar
           setTimeout(() => setMensajeConfirmacion(""), 5000);
         }
       });
@@ -151,7 +166,10 @@ export const IntroHoras = () => {
               proyectoSeleccionado={proyectoSeleccionado}
               setProyectoSeleccionado={(p) => {
                 setProyectoSeleccionado(p);
-                if (p) setMostrarModal(true); 
+                if (p) {
+                    setModoEntrada("diario"); // Reseteamos modo al abrir
+                    setMostrarModal(true);
+                } 
               }}
               proyectos={datosBD.proyectos}
               empresaPadre={empresaSeleccionada}
@@ -178,8 +196,15 @@ export const IntroHoras = () => {
                   <span className="text-xs font-black text-black">{empleadoSeleccionado.name}</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">Fecha</span>
-                  <span className="text-xs font-black text-black">{new Date(fechaSeleccionada).toLocaleDateString()}</span>
+                  <span className="text-[9px] font-bold text-gray-400 uppercase">
+                      {modoEntrada === "mensual" ? "Mes" : "Fecha"}
+                  </span>
+                  <span className="text-xs font-black text-black">
+                      {modoEntrada === "mensual" 
+                        ? new Date(fechaSeleccionada).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()
+                        : new Date(fechaSeleccionada).toLocaleDateString()
+                      }
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-[9px] font-bold text-gray-400 uppercase">Empresa</span>
@@ -187,8 +212,27 @@ export const IntroHoras = () => {
                 </div>
               </div>
 
+              {/* --- NUEVO: SELECTOR DE MODO --- */}
+              <div className="flex bg-gray-100 p-1.5 rounded-xl">
+                 <button 
+                    onClick={() => setModoEntrada("diario")}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${modoEntrada === "diario" ? "bg-white shadow text-black" : "text-gray-400 hover:text-gray-600"}`}
+                 >
+                    Día
+                 </button>
+                 <button 
+                    onClick={() => setModoEntrada("mensual")}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${modoEntrada === "mensual" ? "bg-white shadow text-black" : "text-gray-400 hover:text-gray-600"}`}
+                 >
+                    Mes Entero
+                 </button>
+              </div>
+              {/* ------------------------------- */}
+
               <div className="space-y-4">
-                <p className="text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">introduce tus horas</p>
+                <p className="text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                    {modoEntrada === "mensual" ? "Total horas del mes" : "Introduce tus horas"}
+                </p>
                 <SelectorHoras15min horas={horas} setHoras={setHoras} />
               </div>
 
@@ -201,7 +245,7 @@ export const IntroHoras = () => {
                       ? "bg-black text-white border-black hover:bg-white hover:text-black" 
                       : "bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed"}`}
                 >
-                  Registrar 🐵
+                  {modoEntrada === "mensual" ? "Registrar Mes 📅" : "Registrar 🐵"}
                 </button>
                 <button 
                   onClick={() => { setMostrarModal(false); setProyectoSeleccionado(null); }} 
