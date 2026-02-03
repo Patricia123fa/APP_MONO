@@ -141,19 +141,36 @@ export default function TodosLosProyectos() {
     }
   };
 
-  const handleExportarRegistro = (formato, alcance, fechaExport) => {
-    let filtrados = data;
+  const handleExportarRegistro = (formato, alcance, fechaExport, empresaId, empleadoId) => {
+    // 1. Usamos spread para no modificar 'data' original
+    let filtrados = [...data];
     let tituloPeriodo = "Historial Completo";
 
+    // --- FILTRO EMPRESA ---
+    if (empresaId) {
+        // Aquí usamos 'company' porque tu DB guarda el NOMBRE de la empresa (ej: "Neozink")
+        filtrados = filtrados.filter(r => r.company == empresaId);
+    }
+
+    // --- FILTRO EMPLEADO (Aquí estaba la duda) ---
+    if (empleadoId) {
+        // r.worker_id  -> Viene de tu Base de Datos (API)
+        // empleadoId   -> Viene del Selector (Dropdown)
+        filtrados = filtrados.filter(r => r.worker_id == empleadoId);
+    }
+
+    // ... (El resto de la función sigue igual con la fecha y la generación del CSV/PDF) ...
     if (alcance === "mes") {
         const mesAFiltrar = fechaExport || fechaSeleccionada;
         if (!mesAFiltrar) return alert("🐵 Selecciona un mes.");
         const mesID = mesAFiltrar.substring(0, 7);
-        filtrados = data.filter(r => r.date_work?.includes(mesID));
+        filtrados = filtrados.filter(r => r.date_work?.includes(mesID));
         tituloPeriodo = getNombreMes(mesAFiltrar);
     }
-
+    
+    // ... CSV y PDF ...
     if (formato === "csv") {
+        // ... (Tu código CSV intacto)
         const headers = ["ID_MES", "SEMANA", "FECHA", "DIA", "EMPRESA", "PROYECTO", "TRABAJADOR", "HORAS", "RELOJ"];
         const datosOrdenados = [...filtrados].sort((a, b) => new Date(a.date_work) - new Date(b.date_work));
         const rows = datosOrdenados.map(r => {
@@ -207,6 +224,8 @@ export default function TodosLosProyectos() {
               </div>
               <div class="text-right">
                 <p class="text-[14px] font-bold text-slate-700 capitalize">${tituloPeriodo}</p>
+                ${empresaId ? `<p class="text-[10px] text-slate-400">Empresa: ${empresaId}</p>` : ''} 
+                ${empleadoId ? `<p class="text-[10px] text-slate-400">Filtrado por empleado</p>` : ''}
               </div>
             </div>
             ${Object.keys(agrupado).sort(sortEmpresas).map(empresa => `
@@ -335,6 +354,23 @@ export default function TodosLosProyectos() {
     return base.reduce((acc, curr) => acc + parseFloat(curr.hours), 0);
   }, [data, filtroEmpleado, fechaSeleccionada, modoMesCompleto]);
 
+  // --- CORRECCIÓN AQUÍ: MOVIDO ANTES DEL IF (LOADING) ---
+  const listaEmpresasParaSelector = useMemo(() => {
+    // Usamos ORDEN_PRIORIDAD que ya tienes definido arriba como base
+    return ORDEN_PRIORIDAD.map(empresaNombre => ({
+        id: empresaNombre, 
+        nombre: empresaNombre
+    }));
+  }, []);
+
+  const listaEmpleadosParaSelector = useMemo(() => {
+    return workersList.map(w => ({
+        id: w.id,      
+        nombre: w.name 
+    }));
+  }, [workersList]);
+  // -------------------------------------------------------
+
   if (loading) return <div className="p-10 text-center text-gray-400 font-bold uppercase text-xs tracking-widest">Actualizando...</div>;
 
   return (
@@ -342,7 +378,12 @@ export default function TodosLosProyectos() {
       <h1 className="text-gray-700 text-center mb-4 font-bold text-xl uppercase tracking-tight">VER TODOS LOS PROYECTOS</h1>
       
       <div className="pt-4 flex justify-center mb-4 origin-top">
-         <Exportacion tipo="registro" onExport={handleExportarRegistro} />
+        <Exportacion 
+            tipo="registro" 
+            onExport={handleExportarRegistro} 
+            empresas={listaEmpresasParaSelector}
+            empleados={listaEmpleadosParaSelector}
+         />
       </div>
 
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-8">
