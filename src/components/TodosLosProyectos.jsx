@@ -140,26 +140,26 @@ export default function TodosLosProyectos() {
       setProyectosMaestros(prev => prev.map(p => p.id === projectId ? { ...p, name: oldName } : p));
     }
   };
-
-  const handleExportarRegistro = (formato, alcance, fechaExport, empresaId, empleadoId) => {
-    // 1. Usamos spread para no modificar 'data' original
+const handleExportarRegistro = (formato, alcance, fechaExport, empresaId, empleadoId) => {
+    // 1. Datos base
     let filtrados = [...data];
     let tituloPeriodo = "Historial Completo";
 
-    // --- FILTRO EMPRESA ---
+    // ----------------------------------------------------
+    // PASO 1: APLICAR FILTROS (Comunes para CSV y PDF)
+    // ----------------------------------------------------
+
+    // Filtro Empresa
     if (empresaId) {
-        // Aquí usamos 'company' porque tu DB guarda el NOMBRE de la empresa (ej: "Neozink")
         filtrados = filtrados.filter(r => r.company == empresaId);
     }
 
-    // --- FILTRO EMPLEADO (Aquí estaba la duda) ---
+    // Filtro Empleado (por ID)
     if (empleadoId) {
-        // r.worker_id  -> Viene de tu Base de Datos (API)
-        // empleadoId   -> Viene del Selector (Dropdown)
         filtrados = filtrados.filter(r => r.worker_id == empleadoId);
     }
 
-    // ... (El resto de la función sigue igual con la fecha y la generación del CSV/PDF) ...
+    // Filtro Fecha (Mes seleccionado)
     if (alcance === "mes") {
         const mesAFiltrar = fechaExport || fechaSeleccionada;
         if (!mesAFiltrar) return alert("🐵 Selecciona un mes.");
@@ -167,35 +167,70 @@ export default function TodosLosProyectos() {
         filtrados = filtrados.filter(r => r.date_work?.includes(mesID));
         tituloPeriodo = getNombreMes(mesAFiltrar);
     }
-    
-    // ... CSV y PDF ...
+
+    // ----------------------------------------------------
+    // PASO 2: GENERACIÓN CSV (AGRUPADO POR MES)
+    // ----------------------------------------------------
     if (formato === "csv") {
-        // ... (Tu código CSV intacto)
-        const headers = ["ID_MES", "SEMANA", "FECHA", "DIA", "EMPRESA", "PROYECTO", "TRABAJADOR", "HORAS", "RELOJ"];
-        const datosOrdenados = [...filtrados].sort((a, b) => new Date(a.date_work) - new Date(b.date_work));
-        const rows = datosOrdenados.map(r => {
-            const d = new Date(r.date_work);
-            const diaNombre = new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(d);
-            const clean = (t) => `"${(t || "").toString().replace(/;/g, ',').replace(/"/g, '""')}"`;
-            return [r.date_work.substring(0, 7), r.semanaReal || getISOWeek(r.date_work), r.date_work, diaNombre.toUpperCase(), clean(r.company), clean(r.name), clean(r.worker), r.hours.toString().replace('.', ','), formatDisplayTime(parseFloat(r.hours)).replace('h', '')];
+        // Lógica de agrupación EXCLUSIVA para el CSV
+        const mapaMensual = {};
+
+        filtrados.forEach(r => {
+            const mes = r.date_work.substring(0, 7); // Ejemplo: "2023-10"
+            // CLAVE ÚNICA: Mes + Proyecto + Trabajador
+            const clave = `${mes}_${r.name}_${r.worker}`;
+
+            if (mapaMensual[clave]) {
+                // Si ya existe, sumamos horas
+                mapaMensual[clave].hours = parseFloat(mapaMensual[clave].hours) + parseFloat(r.hours);
+            } else {
+                // Si no, inicializamos
+                mapaMensual[clave] = { ...r, hours: parseFloat(r.hours) };
+            }
         });
+
+        // Convertimos el mapa a array solo para el CSV
+        const datosCSV = Object.values(mapaMensual).sort((a, b) => a.date_work.localeCompare(b.date_work));
+
+        const headers = ["MES", "INFO", "EMPRESA", "PROYECTO", "TRABAJADOR", "HORAS TOTALES", "RELOJ"];
+        
+        const rows = datosCSV.map(r => {
+            const clean = (t) => `"${(t || "").toString().replace(/;/g, ',').replace(/"/g, '""')}"`;
+            
+            return [
+                r.date_work.substring(0, 7),        // Columna MES
+                "RESUMEN MENSUAL",                  // Columna INFO
+                clean(r.company), 
+                clean(r.name), 
+                clean(r.worker), 
+                r.hours.toFixed(2).replace('.', ','), // Horas Sumadas del mes
+                formatDisplayTime(parseFloat(r.hours)).replace('h', '')
+            ];
+        });
+
         const csvContent = "\ufeff" + [headers.join(";"), ...rows.map(e => e.join(";"))].join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `MONO_${tituloPeriodo.toUpperCase()}.csv`;
+        link.download = `MONO_MENSUAL_${tituloPeriodo.toUpperCase()}.csv`;
         link.click();
-        return;
+        return; // Terminamos aquí si es CSV
     }
 
-    const agrupado = {};
+    // ----------------------------------------------------
+    // PASO 3: GENERACIÓN PDF (DETALLADO / SEMANAL)
+    // ----------------------------------------------------
+    // Aquí usamos 'filtrados' original (sin la agrupación mensual extrema)
+    // para que el PDF siga mostrando sus tablas semanales bonitas.
+
+    const agrupadoParaPdf = {};
     filtrados.forEach(r => {
-        if (!agrupado[r.company]) agrupado[r.company] = {};
-        if (!agrupado[r.company][r.name]) agrupado[r.company][r.name] = {};
+        if (!agrupadoParaPdf[r.company]) agrupadoParaPdf[r.company] = {};
+        if (!agrupadoParaPdf[r.company][r.name]) agrupadoParaPdf[r.company][r.name] = {};
         const sem = r.semanaReal || "S/S";
-        if (!agrupado[r.company][r.name][sem]) agrupado[r.company][r.name][sem] = [];
-        agrupado[r.company][r.name][sem].push(r);
+        if (!agrupadoParaPdf[r.company][r.name][sem]) agrupadoParaPdf[r.company][r.name][sem] = [];
+        agrupadoParaPdf[r.company][r.name][sem].push(r);
     });
 
     const ventana = window.open('', '_blank');
@@ -228,12 +263,12 @@ export default function TodosLosProyectos() {
                 ${empleadoId ? `<p class="text-[10px] text-slate-400">Filtrado por empleado</p>` : ''}
               </div>
             </div>
-            ${Object.keys(agrupado).sort(sortEmpresas).map(empresa => `
+            ${Object.keys(agrupadoParaPdf).sort(sortEmpresas).map(empresa => `
               <div class="mb-10 text-left">
                 <h2 class="inline-block bg-slate-50 text-slate-700 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-100 mb-6 text-left">
                   ${empresa}
                 </h2>
-                ${Object.entries(agrupado[empresa]).map(([proyName, semanas]) => {
+                ${Object.entries(agrupadoParaPdf[empresa]).map(([proyName, semanas]) => {
                   const totalProyecto = Object.values(semanas).flat().reduce((acc, curr) => acc + parseFloat(curr.hours), 0);
                   return `
                     <div class="mb-8 text-left border-l border-slate-50 pl-4">
