@@ -19,8 +19,16 @@ const Division = () => {
   const [nochesPorTrabajador, setNochesPorTrabajador] = useState({});
   const [empresaSeleccionadaModal, setEmpresaSeleccionadaModal] = useState("");
 
+  // === NUEVOS ESTADOS VISUALES (No rompen lógica antigua) ===
+  const [modoFecha, setModoFecha] = useState("day"); // 'day' o 'month'
+  const [rangoMontaje, setRangoMontaje] = useState(false);
+  const [rangoDesmontaje, setRangoDesmontaje] = useState(false);
+
   const initialForm = {
-    project_id: "", place: "", event_date: "", setup_date: "", dismantle_date: "",
+    project_id: "", place: "", 
+    event_date: "", event_date_precision: "day", // Nuevo campo (invisible si no se usa)
+    setup_date: "", setup_date_end: "",          // Nuevo campo
+    dismantle_date: "", dismantle_date_end: "",  // Nuevo campo
     coord_project_id: "", coord_prod_id: "", team_setup: "", team_dismantle: "",
     setup_vehicle: "", dismantle_vehicle: ""
   };
@@ -51,6 +59,33 @@ const Division = () => {
 
   useEffect(() => { fetchData(); }, []);
 
+  // --- HELPER PARA PINTAR FECHAS BONITAS ---
+  const formatearFechaDisplay = (date, precision, dateEnd = null) => {
+    if (!date) return "—";
+    
+    // Si la base de datos dice que es solo mes
+    if (precision === 'month') {
+        const d = new Date(date);
+        // Devuelve: "OCTUBRE 2026"
+        return d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase();
+    }
+    
+    // Si tiene fecha de fin (es un rango)
+    if (dateEnd && dateEnd !== "0000-00-00" && dateEnd !== date) {
+        const d1 = new Date(date);
+        const d2 = new Date(dateEnd);
+        // Si es el mismo mes: "13 - 16 MAY"
+        if(d1.getMonth() === d2.getMonth()) {
+             return `${d1.getDate()} - ${d2.getDate()} ${d1.toLocaleDateString('es-ES', { month: 'short' }).toUpperCase()}`;
+        }
+        // Meses distintos: "30/4 - 2/5"
+        return `${d1.getDate()}/${d1.getMonth()+1} - ${d2.getDate()}/${d2.getMonth()+1}`;
+    }
+
+    // Comportamiento de siempre
+    return date;
+  };
+
   // --- BORRAR EVENTO ---
   const deleteEvento = async (id, nombre) => {
     const confirmar = window.confirm(`⚠️ ¿Borrar datos de logística de "${nombre?.toUpperCase() || 'EVENTO'}"?\n(El proyecto seguirá existiendo, solo se reinicia la logística)`);
@@ -74,22 +109,14 @@ const Division = () => {
     
     proyectos.forEach(p => {
         const mesBD = String(p.month_key || "").replace(/-/g, "").trim();
-        
-        // --- MODIFICACIÓN AQUÍ: EXCLUIR SIEMPRE ACTIVO ---
         if (mesBD === "999912") return; 
-        // -------------------------------------------------
 
         const coincideMes = mesBD === mesBuscado; 
         const pExistente = proyectosUnicos.get(p.id);
-
-        // --- CORRECCIÓN DE LOGISTICA ---
-        // Recuperamos el evento específico para este proyecto
         const eventoData = mapaEventos.get(p.id.toString());
-        // Verificamos si existe Y si su fecha pertenece al mes seleccionado
         const eventoCaeEnEsteMes = eventoData && eventoData.event_date && eventoData.event_date.startsWith(filtroMes);
 
         if (!pExistente) {
-            // Se muestra si el proyecto es del mes O si tiene logística en este mes
             if (coincideMes || eventoCaeEnEsteMes) {
                 proyectosUnicos.set(p.id, p);
             }
@@ -130,10 +157,29 @@ const Division = () => {
     const gruposOrdenados = {};
     const empresasDetectadas = Object.keys(grupos);
     
+    // --- FUNCIÓN DE ORDENACIÓN INTERNA (NUEVO) ---
+    const sortItemsInternos = (items) => {
+        return items.sort((a, b) => {
+            // 1. Prioridad: ¿Es completo (tiene logística)?
+            const aCompleto = a.tipo === 'completo';
+            const bCompleto = b.tipo === 'completo';
+            
+            // Si a es completo y b no, a va primero (-1)
+            if (aCompleto && !bCompleto) return -1;
+            // Si b es completo y a no, b va primero (1)
+            if (!aCompleto && bCompleto) return 1;
+            
+            // 2. Si empatan en tipo, ordenar alfabéticamente por nombre
+            return a.proyecto.name.localeCompare(b.proyecto.name);
+        });
+    };
+    // ----------------------------------------------
+
     ORDEN_PRIORIDAD.forEach(empPrioridad => {
         const empDetectada = empresasDetectadas.find(e => e.toLowerCase() === empPrioridad.toLowerCase());
         if (empDetectada && grupos[empDetectada]) {
-            gruposOrdenados[empDetectada] = grupos[empDetectada].sort((a,b) => a.proyecto.name.localeCompare(b.proyecto.name));
+            // Aplicamos la ordenación interna aquí
+            gruposOrdenados[empDetectada] = sortItemsInternos(grupos[empDetectada]);
         }
     });
     
@@ -141,7 +187,8 @@ const Division = () => {
         if (!Object.values(gruposOrdenados).includes(grupos[emp])) { 
              const yaEsta = Object.keys(gruposOrdenados).some(k => k.toLowerCase() === emp.toLowerCase());
              if(!yaEsta) {
-                gruposOrdenados[emp] = grupos[emp].sort((a,b) => a.proyecto.name.localeCompare(b.proyecto.name));
+                // Aplicamos la ordenación interna aquí también
+                gruposOrdenados[emp] = sortItemsInternos(grupos[emp]);
              }
         }
     });
@@ -151,7 +198,7 @@ const Division = () => {
   }, [proyectos, eventos, filtroMes, filtroWorker]);
 
 
-  // --- ABRIR MODAL ---
+  // --- ABRIR MODAL (Actualizado para leer los nuevos campos) ---
   const handleEditClick = (item, e) => {
     e.stopPropagation();
     
@@ -162,12 +209,30 @@ const Division = () => {
     setEmpresaSeleccionadaModal(proyectoData.company || "");
     setEditId(esPendiente ? null : eventoData.id);
 
+    // 1. Detectar precisión de fecha
+    const precision = eventoData.event_date_precision || 'day';
+    setModoFecha(precision);
+    
+    let eDate = eventoData.event_date || "";
+    // Si es modo mes, cortamos el string para que el input type="month" lo entienda
+    if (precision === 'month' && eDate.length > 7) eDate = eDate.substring(0, 7);
+
+    // 2. Detectar rangos activos
+    const tieneFinM = eventoData.setup_date_end && eventoData.setup_date_end !== "0000-00-00";
+    setRangoMontaje(tieneFinM);
+    
+    const tieneFinD = eventoData.dismantle_date_end && eventoData.dismantle_date_end !== "0000-00-00";
+    setRangoDesmontaje(tieneFinD);
+
     setForm({
       project_id: proyectoData.id,
       place: eventoData.place || "", 
-      event_date: eventoData.event_date || "", 
+      event_date: eDate, 
+      event_date_precision: precision,
       setup_date: eventoData.setup_date || "", 
+      setup_date_end: eventoData.setup_date_end || "",
       dismantle_date: eventoData.dismantle_date || "",
+      dismantle_date_end: eventoData.dismantle_date_end || "",
       coord_project_id: eventoData.coord_project_id || "", 
       coord_prod_id: eventoData.coord_prod_id || "",
       team_setup: eventoData.team_setup || "", 
@@ -196,7 +261,7 @@ const Division = () => {
     });
   };
 
-  // --- GUARDAR ---
+  // --- GUARDAR (Prepara datos seguros para BD) ---
   const saveEvento = async () => {
     if (!form.project_id || !form.event_date) return alert("Proyecto y Fecha son obligatorios");
     
@@ -205,8 +270,22 @@ const Division = () => {
       nights: parseInt(nights) || 0
     }));
 
-    const action = editId ? 'update_event' : 'add_event'; 
     const payload = { ...form, id: editId, noches_staff };
+
+    // ASEGURAR FECHAS:
+    // Si elegiste solo mes, añadimos "-01" para que la BD (Type DATE) no se rompa
+    if (modoFecha === 'month') {
+        payload.event_date = form.event_date + "-01"; 
+        payload.event_date_precision = 'month';
+    } else {
+        payload.event_date_precision = 'day';
+    }
+
+    // Si los rangos están desactivados, mandamos NULL a las fechas de fin
+    if (!rangoMontaje) payload.setup_date_end = null;
+    if (!rangoDesmontaje) payload.dismantle_date_end = null;
+
+    const action = editId ? 'update_event' : 'add_event'; 
 
     try {
       const res = await fetch(`https://registromono.monognomo.com/api.php?action=${action}`, {
@@ -221,7 +300,7 @@ const Division = () => {
 
   if (loading) return <div className="min-h-screen bg-[#fdc436] flex items-center justify-center font-black uppercase text-xs">Cargando División...</div>;
 
-  // --- EXPORTACIÓN ---
+  // --- EXPORTACIÓN (Sin cambios lógicos, solo visuales) ---
   const handleExportarDivision = (formato, alcance, fechaExport) => {
     let eventosReales = eventos; 
     let tituloPeriodo = "Historial Logística Completo";
@@ -249,8 +328,14 @@ const Division = () => {
                         return `${t ? t.name : 'Staff'}: ${n}🌙`;
                     }).join(", ");
             }
+            
+            // Usamos el helper para exportar texto bonito
+            const fechaBonita = formatearFechaDisplay(ev.event_date, ev.event_date_precision);
+            const montajeBonito = formatearFechaDisplay(ev.setup_date, 'day', ev.setup_date_end);
+            const desmontajeBonito = formatearFechaDisplay(ev.dismantle_date, 'day', ev.dismantle_date_end);
+
             return [
-                ev.event_date, 
+                fechaBonita, 
                 clean(p?.company || "—"), 
                 clean(ev.nombre_evento || p?.name), 
                 clean(ev.place || ""), 
@@ -258,9 +343,9 @@ const Division = () => {
                 ev.noches_totales || 0,
                 clean(ev.coordinador_proyecto), 
                 clean(ev.coordinador_produccion), 
-                clean(`${ev.setup_date} (${ev.setup_vehicle})`),
+                clean(`${montajeBonito} (${ev.setup_vehicle})`),
                 clean(ev.team_setup), 
-                clean(`${ev.dismantle_date} (${ev.dismantle_vehicle})`), 
+                clean(`${desmontajeBonito} (${ev.dismantle_vehicle})`), 
                 clean(ev.team_dismantle)
             ];
         });
@@ -305,8 +390,14 @@ const Division = () => {
                 <tbody>
                   ${datosOrdenados.map(ev => {
                     const p = proyectos.find(proj => proj.id == ev.project_id);
+                    
+                    // Helpers en PDF
+                    const fechaBonita = formatearFechaDisplay(ev.event_date, ev.event_date_precision);
+                    const montajeBonito = formatearFechaDisplay(ev.setup_date, 'day', ev.setup_date_end);
+                    const desmontajeBonito = formatearFechaDisplay(ev.dismantle_date, 'day', ev.dismantle_date_end);
+
                     return `<tr>
-                        <td class="font-bold text-slate-400">${ev.event_date}</td>
+                        <td class="font-bold text-slate-400">${fechaBonita}</td>
                         <td>
                             <div class="font-black text-slate-900 uppercase text-[10px] mb-1">${ev.nombre_evento || p?.name}</div>
                             ${ev.place ? `<div class="text-[8px] font-bold text-blue-500 uppercase mb-1">📍 ${ev.place}</div>` : ''}
@@ -314,8 +405,8 @@ const Division = () => {
                             <div class="text-[8px] text-slate-500">PD: ${ev.coordinador_produccion || "—"}</div>
                         </td>
                         <td><div class="text-slate-600 mb-1 leading-tight">${ev.desglose_noches || "—"}</div>${ev.noches_totales > 0 ? `<span class="badge">🌙 TOTAL: ${ev.noches_totales}</span>` : ''}</td>
-                        <td><div class="text-[9px] font-bold text-blue-600">${ev.setup_date || "—"}</div><div class="text-[9px] font-black text-slate-700 mt-1">🚚 ${ev.setup_vehicle || "—"}</div><div class="team-note">${ev.team_setup || "—"}</div></td>
-                        <td><div class="text-[9px] font-bold text-purple-600">${ev.dismantle_date || "—"}</div><div class="text-[9px] font-black text-slate-700 mt-1">🚚 ${ev.dismantle_vehicle || "—"}</div><div class="team-note">${ev.team_dismantle || "—"}</div></td>
+                        <td><div class="text-[9px] font-bold text-blue-600">${montajeBonito}</div><div class="text-[9px] font-black text-slate-700 mt-1">🚚 ${ev.setup_vehicle || "—"}</div><div class="team-note">${ev.team_setup || "—"}</div></td>
+                        <td><div class="text-[9px] font-bold text-purple-600">${desmontajeBonito}</div><div class="text-[9px] font-black text-slate-700 mt-1">🚚 ${ev.dismantle_vehicle || "—"}</div><div class="team-note">${ev.team_dismantle || "—"}</div></td>
                       </tr>`;
                   }).join('')}
                 </tbody>
@@ -365,19 +456,20 @@ const Division = () => {
                     style={{borderLeft: `6px solid ${colorBorde}`}} 
                     onClick={() => esCompleto ? setExpandido({...expandido, [idUnico]: !expandido[idUnico]}) : handleEditClick(item, {stopPropagation:()=>{}})}
                   >
-                    {/* AQUÍ ESTÁ EL CAMBIO VISUAL PARA MÓVIL: Flex-1 y min-w-0 */}
                     <div className="flex flex-col flex-1 min-w-0 mr-2">
                       <div className="flex items-center gap-2">
                         {esCompleto && evento.noches_totales > 0 && <span>🌙</span>}
                         {!esCompleto && <span className="text-[9px] bg-gray-100 text-gray-500 px-1 rounded shrink-0">PENDIENTE</span>}
-                        {/* El truncate funcionará porque el padre tiene min-w-0 */}
                         <span className="font-black text-[10px] uppercase text-gray-800 truncate">
                             {esCompleto ? (evento.nombre_evento || proyecto.name) : proyecto.name}
                         </span>
                       </div>
+                      
+                      {/* FECHA: Ahora usa el helper bonito */}
                       <span className="text-[9px] text-gray-400 font-bold uppercase">
-                        {esCompleto ? evento.event_date : "Sin Logística"}
+                        {esCompleto ? formatearFechaDisplay(evento.event_date, evento.event_date_precision) : "Sin Logística"}
                       </span>
+                      
                       {esCompleto && evento.place && (
                           <span className="text-[8px] text-blue-400 font-black uppercase mt-0.5 block truncate">
                               📍 {evento.place}
@@ -385,7 +477,6 @@ const Division = () => {
                       )}
                     </div>
                     
-                    {/* Botones con shrink-0 para que no se aplasten */}
                     <div className="flex items-center gap-1 shrink-0">
                       <button 
                         onClick={(e) => handleEditClick(item, e)} 
@@ -409,7 +500,10 @@ const Division = () => {
                             <div>
                                 <div className="mb-3 p-2 bg-white rounded-lg border border-gray-100 shadow-sm">
                                     <p className="text-gray-400 font-black uppercase text-[7px] mb-0.5">📅 Fecha del Evento</p>
-                                    <p className="font-bold text-gray-800 text-[11px]">{evento.event_date || "—"}</p>
+                                    <p className="font-bold text-gray-800 text-[11px]">
+                                        {/* Helper bonito */}
+                                        {formatearFechaDisplay(evento.event_date, evento.event_date_precision)}
+                                    </p>
                                     {evento.place && (
                                         <p className="text-[9px] font-black text-blue-500 uppercase mt-1">📍 {evento.place}</p>
                                     )}
@@ -437,12 +531,16 @@ const Division = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             <div className="bg-blue-50 p-2 rounded-lg border border-blue-100">
-                                <span className="text-blue-600 font-black text-[7px] uppercase block mb-1">Montaje ({evento.setup_date || "S/F"})</span>
+                                <span className="text-blue-600 font-black text-[7px] uppercase block mb-1">
+                                    Montaje ({formatearFechaDisplay(evento.setup_date, 'day', evento.setup_date_end)})
+                                </span>
                                 <p className="font-bold text-blue-900 leading-tight">🚚 {evento.setup_vehicle || "—"}</p>
                                 <p className="text-[8px] mt-1 text-blue-800/60 whitespace-pre-wrap">{evento.team_setup}</p>
                             </div>
                             <div className="bg-purple-50 p-2 rounded-lg border border-purple-100">
-                                <span className="text-purple-600 font-black text-[7px] uppercase block mb-1">Desmontaje ({evento.dismantle_date || "S/F"})</span>
+                                <span className="text-purple-600 font-black text-[7px] uppercase block mb-1">
+                                    Desmontaje ({formatearFechaDisplay(evento.dismantle_date, 'day', evento.dismantle_date_end)})
+                                </span>
                                 <p className="font-bold text-purple-900 leading-tight">🚚 {evento.dismantle_vehicle || "—"}</p>
                                 <p className="text-[8px] mt-1 text-purple-800/60 whitespace-pre-wrap">{evento.team_dismantle}</p>
                             </div>
@@ -488,11 +586,22 @@ const Division = () => {
                 </div>
               </div>
 
-              {/* === NUEVO CAMPO: LUGAR DEL EVENTO === */}
+              {/* === FECHA PRINCIPAL === */}
               <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1 bg-amber-50 p-3 rounded-2xl border border-amber-100">
-                      <label className="text-[8px] font-black uppercase text-amber-600 tracking-widest">📅 Fecha Principal</label>
-                      <input type="date" className="p-2 bg-white rounded-lg text-xs font-bold outline-none border border-amber-200" value={form.event_date} onChange={e => setForm({...form, event_date: e.target.value})} />
+                      <div className="flex justify-between items-center mb-1">
+                          <label className="text-[8px] font-black uppercase text-amber-600 tracking-widest">📅 Fecha Evento</label>
+                          <div className="flex gap-1">
+                            <button onClick={()=>setModoFecha('day')} className={`text-[6px] uppercase font-black px-2 py-1 rounded ${modoFecha==='day'?'bg-amber-500 text-white':'bg-amber-100 text-amber-400'}`}>Día</button>
+                            <button onClick={()=>setModoFecha('month')} className={`text-[6px] uppercase font-black px-2 py-1 rounded ${modoFecha==='month'?'bg-amber-500 text-white':'bg-amber-100 text-amber-400'}`}>Mes</button>
+                          </div>
+                      </div>
+                      <input 
+                        type={modoFecha === 'month' ? "month" : "date"} 
+                        className="p-2 bg-white rounded-lg text-xs font-bold outline-none border border-amber-200" 
+                        value={form.event_date} 
+                        onChange={e => setForm({...form, event_date: e.target.value})} 
+                      />
                   </div>
                   <div className="flex flex-col gap-1 bg-gray-50 p-3 rounded-2xl border border-gray-100">
                       <label className="text-[8px] font-black uppercase text-gray-400 tracking-widest">📍 Lugar</label>
@@ -501,21 +610,21 @@ const Division = () => {
               </div>
 
                <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-2xl">
-                   <div className="flex flex-col gap-1">
-                       <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PR</label>
-                       <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_project_id} onChange={e => setForm({...form, coord_project_id: e.target.value})}>
-                           <option value="">Sin asignar</option>
-                           {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                       </select>
-                   </div>
-                   <div className="flex flex-col gap-1">
-                       <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PD</label>
-                       <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_prod_id} onChange={e => setForm({...form, coord_prod_id: e.target.value})}>
-                           <option value="">Sin asignar</option>
-                           {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                       </select>
-                   </div>
-               </div>
+                    <div className="flex flex-col gap-1">
+                        <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PR</label>
+                        <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_project_id} onChange={e => setForm({...form, coord_project_id: e.target.value})}>
+                            <option value="">Sin asignar</option>
+                            {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PD</label>
+                        <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_prod_id} onChange={e => setForm({...form, coord_prod_id: e.target.value})}>
+                            <option value="">Sin asignar</option>
+                            {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    </div>
+                </div>
 
                 <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
                     <label className="text-blue-600 uppercase text-[8px] font-black block mb-3 text-center tracking-widest underline">MonoGnomos y Noches</label>
@@ -539,17 +648,36 @@ const Division = () => {
                 </div>
 
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2 text-left">
-                        <label className="text-[8px] font-black uppercase text-blue-500 tracking-widest">Montaje</label>
-                        <input className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold" type="date" value={form.setup_date} onChange={e => setForm({...form, setup_date: e.target.value})} />
-                        <input className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold" placeholder="Vehículo" type="text" value={form.setup_vehicle} onChange={e => setForm({...form, setup_vehicle: e.target.value})} />
-                        <textarea className="w-full p-2 bg-gray-50 rounded-lg text-xs h-16 outline-none font-bold" placeholder="Notas montaje..." value={form.team_setup} onChange={e => setForm({...form, team_setup: e.target.value})} />
+                    {/* === MONTAJE === */}
+                    <div className="space-y-2 text-left bg-gray-50 p-2 rounded-xl">
+                        <div className="flex justify-between items-center">
+                            <label className="text-[8px] font-black uppercase text-blue-500 tracking-widest">Montaje</label>
+                            <button onClick={()=>setRangoMontaje(!rangoMontaje)} className="text-[7px] font-bold text-blue-400 bg-white px-2 py-1 rounded shadow-sm hover:text-blue-600">{rangoMontaje ? 'Quitar Rango' : '+ Rango'}</button>
+                        </div>
+                        <div className="flex gap-1">
+                            <input className="w-full p-2 bg-white rounded-lg text-xs font-bold" type="date" value={form.setup_date} onChange={e => setForm({...form, setup_date: e.target.value})} />
+                            {rangoMontaje && (
+                                <input className="w-full p-2 bg-white rounded-lg text-xs font-bold animate-in slide-in-from-left-2" type="date" value={form.setup_date_end} onChange={e => setForm({...form, setup_date_end: e.target.value})} />
+                            )}
+                        </div>
+                        <input className="w-full p-2 bg-white rounded-lg text-xs font-bold" placeholder="Vehículo" type="text" value={form.setup_vehicle} onChange={e => setForm({...form, setup_vehicle: e.target.value})} />
+                        <textarea className="w-full p-2 bg-white rounded-lg text-xs h-16 outline-none font-bold" placeholder="Notas montaje..." value={form.team_setup} onChange={e => setForm({...form, team_setup: e.target.value})} />
                     </div>
-                    <div className="space-y-2 text-left">
-                        <label className="text-[8px] font-black uppercase text-purple-500 tracking-widest">Desmontaje</label>
-                        <input className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold" type="date" value={form.dismantle_date} onChange={e => setForm({...form, dismantle_date: e.target.value})} />
-                        <input className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold" placeholder="Vehículo" type="text" value={form.dismantle_vehicle} onChange={e => setForm({...form, dismantle_vehicle: e.target.value})} />
-                        <textarea className="w-full p-2 bg-gray-50 rounded-lg text-xs h-16 outline-none font-bold" placeholder="Notas desmontaje..." value={form.team_dismantle} onChange={e => setForm({...form, team_dismantle: e.target.value})} />
+
+                    {/* === DESMONTAJE === */}
+                    <div className="space-y-2 text-left bg-gray-50 p-2 rounded-xl">
+                        <div className="flex justify-between items-center">
+                            <label className="text-[8px] font-black uppercase text-purple-500 tracking-widest">Desmontaje</label>
+                            <button onClick={()=>setRangoDesmontaje(!rangoDesmontaje)} className="text-[7px] font-bold text-purple-400 bg-white px-2 py-1 rounded shadow-sm hover:text-purple-600">{rangoDesmontaje ? 'Quitar Rango' : '+ Rango'}</button>
+                        </div>
+                        <div className="flex gap-1">
+                            <input className="w-full p-2 bg-white rounded-lg text-xs font-bold" type="date" value={form.dismantle_date} onChange={e => setForm({...form, dismantle_date: e.target.value})} />
+                            {rangoDesmontaje && (
+                                <input className="w-full p-2 bg-white rounded-lg text-xs font-bold animate-in slide-in-from-left-2" type="date" value={form.dismantle_date_end} onChange={e => setForm({...form, dismantle_date_end: e.target.value})} />
+                            )}
+                        </div>
+                        <input className="w-full p-2 bg-white rounded-lg text-xs font-bold" placeholder="Vehículo" type="text" value={form.dismantle_vehicle} onChange={e => setForm({...form, dismantle_vehicle: e.target.value})} />
+                        <textarea className="w-full p-2 bg-white rounded-lg text-xs h-16 outline-none font-bold" placeholder="Notas desmontaje..." value={form.team_dismantle} onChange={e => setForm({...form, team_dismantle: e.target.value})} />
                     </div>
                 </div>
 
