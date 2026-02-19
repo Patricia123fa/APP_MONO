@@ -144,7 +144,7 @@ export default function ProyectosPorMes() {
 
             {abiertos[company.id] && (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="hidden md:table w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-gray-50/50 border-b border-gray-100">
                       <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest w-[30%]">Proyecto</th>
@@ -156,7 +156,7 @@ export default function ProyectosPorMes() {
                   <tbody className="divide-y divide-gray-50">
                     {company.projects.map((p) => (
                       <tr key={p.id} className="hover:bg-gray-50/30 transition-colors align-top">
-                        <td className="px-8 py-5 text-xs font-bold uppercase text-gray-800 leading-relaxed">{p.name}</td>
+                        <td className="px-8 py-5 text-xs font-bold uppercase text-gray-800 leading-relaxed whitespace-normal break-words [overflow-wrap:anywhere]">{p.name}</td>
                         <td className="px-8 py-5">
                           <div className="flex flex-wrap gap-1">
                             {p.mesesList.map(m => (
@@ -185,7 +185,7 @@ export default function ProyectosPorMes() {
                   {company.projects.map((p) => (
                     <div key={p.id} className="p-5 space-y-3">
                       <div className="flex justify-between items-start gap-4 text-left">
-                        <span className="font-black text-gray-800 text-[11px] uppercase leading-tight">{p.name}</span>
+                        <span className="flex-1 min-w-0 font-black text-gray-800 text-[11px] uppercase leading-tight whitespace-normal break-words [overflow-wrap:anywhere]">{p.name}</span>
                         <div className="flex gap-4 shrink-0">
                           <button onClick={() => { setEditando({ project_id: p.id, name: p.name, originalName: p.name, meses: p.mesesList, nuevoMes: "" }); setModalAbierto(true); }} className="text-lg">✏️</button>
                           <button onClick={() => handleBorrarProyecto(p.id, p.name)} className="text-lg">🗑️</button>
