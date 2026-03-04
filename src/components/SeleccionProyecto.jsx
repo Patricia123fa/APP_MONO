@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react"; // 1. Añadido useEffect
 
-//CONVIERTE LA FECHA DEL AÑO
+// CONVIERTE LA FECHA DEL AÑO
 const formatearMesAnio = (mesAnioStr) => {
   if (!mesAnioStr) return "";
   if (mesAnioStr === "9999-12") return "✨ Siempre Activo";
@@ -22,42 +22,26 @@ export default function SeleccionProyecto({
   const [mostrandoFormNuevo, setMostrandoFormNuevo] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [advertenciaDuplicado, setAdvertenciaDuplicado] = useState(""); // 2. Movido aquí dentro
 
-  // --- FILTRADO CORREGIDO: INCLUYE PROYECTOS VACÍOS/NUEVOS ---
+  // --- FILTRADO DE PROYECTOS ---
   const proyectosFiltrados = useMemo(() => {
     if (!empresaPadre || !fechaPadre) return [];
-    
-    // Normalizamos lo que buscamos
     const empresaBuscada = String(empresaPadre).trim().toLowerCase();
     const mesBuscado = String(fechaPadre).replace(/-/g, "").trim(); 
-
     const unicos = new Map();
 
     proyectos.forEach(p => {
-      // Normalizamos datos BD
       const empresaBD = String(p.company || "Sin Empresa").trim().toLowerCase();
-      
-      // 1. Detectar si el proyecto no tiene mes asignado (es nuevo)
       const esProyectoVacio = !p.month_key;
-
       const mesBDRaw = String(p.month_key || ""); 
       const mesBD = mesBDRaw.replace(/-/g, "").trim();
-
-      // Comparaciones
       const coincideEmpresa = empresaBD === empresaBuscada;
-      
-      // 2. Condiciones de visualización:
-      // - Coincide el mes exacto
-      // - Es "Siempre Activo"
-      // - O NO tiene mes (para que salgan los nuevos)
       const esDelMes = mesBD === mesBuscado;
       const esSiempreActivo = mesBD === "999912" || mesBD === "9999-12";
-      
       const debeAparecer = esDelMes || esSiempreActivo || esProyectoVacio;
 
       if (coincideEmpresa && debeAparecer) {
-        // Prioridad: Si ya guardamos el proyecto (quizás la versión vacía),
-        // pero ahora encontramos la versión con el mes correcto, actualizamos el Map.
         const yaExiste = unicos.get(p.id);
         if (!yaExiste || esDelMes) {
             unicos.set(p.id, p);
@@ -70,40 +54,49 @@ export default function SeleccionProyecto({
     );
   }, [empresaPadre, fechaPadre, proyectos]);
 
-  const handleGuardarNuevo = async () => {
-    const nombreLimpio = nuevoNombre.trim();
-    if (!nombreLimpio) return;
+  // --- VALIDACIÓN EN TIEMPO REAL ---
+  useEffect(() => {
+    const nombreLimpio = nuevoNombre.trim().toLowerCase();
+    if (nombreLimpio.length < 3) {
+      setAdvertenciaDuplicado("");
+      return;
+    }
 
-    // --- LÓGICA DE VALIDACIÓN ---
-    const palabrasNuevas = nombreLimpio.toLowerCase().split(/\s+/).filter(p => p.length > 2);
+    const palabrasNuevas = nombreLimpio.split(/\s+/).filter(p => p.length > 2);
     
-    const duplicadoExistente = proyectos.find(proj => {
+    const duplicado = proyectos.find(proj => {
       const palabrasExistentes = proj.name.toLowerCase().split(/\s+/).filter(p => p.length > 2);
       const coincidencias = palabrasNuevas.filter(pal => palabrasExistentes.includes(pal));
       return coincidencias.length >= 3 || (palabrasNuevas.length > 0 && coincidencias.length === palabrasNuevas.length);
     });
 
-    if (duplicadoExistente) {
+    setAdvertenciaDuplicado(duplicado ? `⚠️ Se parece a: "${duplicado.name.toUpperCase()}"` : "");
+  }, [nuevoNombre, proyectos]);
+
+  const handleGuardarNuevo = async () => {
+    const nombreLimpio = nuevoNombre.trim();
+    if (!nombreLimpio) return;
+
+    // Mantenemos el confirm por seguridad extra al hacer click
+    if (advertenciaDuplicado) {
       const confirmar = window.confirm(
-        `⚠️ ¡ATENCIÓN! ⚠️\n\nEste proyecto se parece mucho a: "${duplicadoExistente.name.toUpperCase()}"\n\n¿Estás seguro de que no es el mismo?`
+        `¡ATENCIÓN!\n\n${advertenciaDuplicado}\n\n¿Estás seguro de que quieres crearlo de todas formas?`
       );
       if (!confirmar) return; 
     }
 
     setCargando(true);
-    const datos = {
-      action: 'add_custom',
-      tipo: 'proyecto', 
-      nombre: nombreLimpio,
-      empresa_relacionada: empresaPadre,
-      month_key: fechaPadre 
-    };
-
     try {
       const resp = await fetch(`https://registromono.monognomo.com/api.php?action=add_custom`, {
         method: "POST",
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datos)
+        body: JSON.stringify({
+          action: 'add_custom',
+          tipo: 'proyecto', 
+          nombre: nombreLimpio,
+          empresa_relacionada: empresaPadre,
+          month_key: fechaPadre 
+        })
       });
       const res = await resp.json();
       if (res.success) {
@@ -126,11 +119,6 @@ export default function SeleccionProyecto({
         <label className="font-black text-gray-400 uppercase text-[9px] tracking-[0.2em]">
           3. Proyectos de {empresaPadre} ({formatearMesAnio(fechaPadre)})
         </label>
-        {proyectosFiltrados.length === 0 && (
-          <span className="text-[8px] font-bold text-red-500 uppercase bg-red-50 px-2 py-1 rounded animate-pulse">
-            Sin proyectos en {formatearMesAnio(fechaPadre)}
-          </span>
-        )}
       </div>
 
       <select
@@ -159,12 +147,19 @@ export default function SeleccionProyecto({
             type="text" 
             value={nuevoNombre}
             onChange={(e) => setNuevoNombre(e.target.value)}
-            className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold outline-none"
+            className={`w-full p-3 bg-gray-50 border ${advertenciaDuplicado ? 'border-orange-300 ring-2 ring-orange-50' : 'border-gray-100'} rounded-xl text-sm font-bold outline-none`}
             placeholder="Nombre del nuevo proyecto..."
             autoFocus
           />
+          
+          {advertenciaDuplicado && (
+            <p className="text-[10px] font-bold text-orange-600 px-1 animate-pulse italic">
+              {advertenciaDuplicado}
+            </p>
+          )}
+
           <div className="flex gap-3 justify-end">
-            <button onClick={() => setMostrandoFormNuevo(false)} className="text-gray-400 text-[10px] font-black uppercase tracking-wider">Cancelar</button>
+            <button onClick={() => { setMostrandoFormNuevo(false); setNuevoNombre(""); }} className="text-gray-400 text-[10px] font-black uppercase tracking-wider">Cancelar</button>
             <button onClick={handleGuardarNuevo} disabled={cargando} className="bg-black text-white px-6 py-2.5 rounded-xl font-black uppercase text-[10px]">
               {cargando ? "Guardando..." : "Crear 🐵"}
             </button>
