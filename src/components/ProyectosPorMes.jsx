@@ -18,11 +18,12 @@ export default function ProyectosPorMes() {
   const [abiertos, setAbiertos] = useState({});
   const [mesSeleccionado, setMesSeleccionado] = useState("");
   const [modalAbierto, setModalAbierto] = useState(false);
+  
+  // ACTUALIZACIÓN: Añadido 'workers' al estado para no perder el equipo al guardar
   const [editando, setEditando] = useState({ 
-    project_id: "", name: "", originalName: "", meses: [], isActive: false 
+    project_id: "", name: "", originalName: "", meses: [], isActive: false, workers: "" 
   }); 
 
-  // Detectamos el mes en curso para los mensajes y la lógica
   const mesActual = new Date().toISOString().slice(0, 7); 
 
   const fetchData = async () => {
@@ -47,11 +48,11 @@ export default function ProyectosPorMes() {
       if (!mesesFinales.includes("9999-12")) mesesFinales.push("9999-12");
     } else {
       mesesFinales = mesesFinales.filter(m => m !== "9999-12" && m !== "999912");
-      // Aquí usamos el mes en curso dinámicamente
       if (!mesesFinales.includes(mesActual)) mesesFinales.push(mesActual);
     }
 
     try {
+      // Enviamos todo el objeto 'editando' que ahora incluye el nombre y el equipo
       const resp = await fetch(`https://registromono.monognomo.com/api.php?action=edit_full_project_details`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -78,7 +79,11 @@ export default function ProyectosPorMes() {
       const proyID = reg.project_id;
       if (!agrupado[finalKey].projects[proyID]) {
         agrupado[finalKey].projects[proyID] = { 
-          id: proyID, name: reg.name, mesesSet: new Set(), display_workers: reg.display_workers || "Sin equipo asignado", company: finalKey 
+          id: proyID, 
+          name: reg.name, 
+          mesesSet: new Set(), 
+          display_workers: reg.display_workers || "Sin equipo asignado", 
+          company: finalKey 
         };
       }
       if (reg.month_key) agrupado[finalKey].projects[proyID].mesesSet.add(reg.month_key);
@@ -165,7 +170,18 @@ export default function ProyectosPorMes() {
                         </td>
                         <td className="px-8 py-5 text-[10px] text-gray-400 italic">👥 {p.display_workers}</td>
                         <td className="px-8 py-5 text-right">
-                          <button onClick={() => { setEditando({ project_id: p.id, name: p.name, originalName: p.name, meses: p.mesesList, isActive: p.isActive }); setModalAbierto(true); }} className="text-lg hover:scale-125 transition-transform">✏️</button>
+                          {/* ACTUALIZACIÓN: Ahora pasamos p.display_workers al abrir el modal */}
+                          <button onClick={() => { 
+                            setEditando({ 
+                              project_id: p.id, 
+                              name: p.name, 
+                              originalName: p.name, 
+                              meses: p.mesesList, 
+                              isActive: p.isActive,
+                              workers: p.display_workers // <--- Importante
+                            }); 
+                            setModalAbierto(true); 
+                          }} className="text-lg hover:scale-125 transition-transform">✏️</button>
                         </td>
                       </tr>
                     ))}
@@ -178,7 +194,7 @@ export default function ProyectosPorMes() {
       </div>
 
       {modalAbierto && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-150 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-8">
               <div>
@@ -214,7 +230,6 @@ export default function ProyectosPorMes() {
                 
                 {!editando.isActive && (
                    <p className="text-[9px] text-orange-600 font-bold italic bg-orange-50 p-3 rounded-xl border border-orange-100">
-                     {/* AQUÍ EL TEXTO YA ES DINÁMICO */}
                      ⚠️ Al cerrar, se guardará en el historial de {formatearMesAnio(mesActual)} y dejará de aparecer en meses futuros.
                    </p>
                 )}
