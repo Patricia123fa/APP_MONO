@@ -452,6 +452,12 @@ export default function TodosLosProyectos() {
               <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">{modoMesCompleto ? "Total Mes" : `Semana ${getISOWeek(fechaSeleccionada)}`}</span>
               <span className="text-[10px] font-bold text-gray-500 uppercase">{filtroEmpleado}</span>
             </div>
+            <button
+              onClick={() => setModoMesCompleto(prev => !prev)}
+              className="text-[8px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              {modoMesCompleto ? "Ver Semana" : "Ver Mes"}
+            </button>
             <div className="text-xl font-black tracking-tighter text-gray-700">{formatDisplayTime(totalSumaFlotante)}</div>
           </div>
         </div>
