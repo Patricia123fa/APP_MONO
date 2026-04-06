@@ -109,15 +109,14 @@ const Division = () => {
     
     proyectos.forEach(p => {
         const mesBD = String(p.month_key || "").replace(/-/g, "").trim();
-        if (mesBD === "999912") return; 
-
-        const coincideMes = mesBD === mesBuscado; 
+        const coincideMes = mesBD === mesBuscado;
+        const esSiempreActivo = mesBD === "999912";
         const pExistente = proyectosUnicos.get(p.id);
         const eventoData = mapaEventos.get(p.id.toString());
         const eventoCaeEnEsteMes = eventoData && eventoData.event_date && eventoData.event_date.startsWith(filtroMes);
 
         if (!pExistente) {
-            if (coincideMes || eventoCaeEnEsteMes) {
+            if (coincideMes || esSiempreActivo || eventoCaeEnEsteMes) {
                 proyectosUnicos.set(p.id, p);
             }
         } else {
