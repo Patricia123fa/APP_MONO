@@ -29,7 +29,7 @@ const Division = () => {
     event_date: "", event_date_precision: "day", // Nuevo campo (invisible si no se usa)
     setup_date: "", setup_date_end: "",          // Nuevo campo
     dismantle_date: "", dismantle_date_end: "",  // Nuevo campo
-    coord_project_id: "", coord_prod_id: "", team_setup: "", team_dismantle: "",
+    coord_project_id: "", coord_prod_id: "", coord_disenio_id: "", team_setup: "", team_dismantle: "",
     setup_vehicle: "", dismantle_vehicle: ""
   };
   const [form, setForm] = useState(initialForm);
@@ -235,6 +235,7 @@ const Division = () => {
       dismantle_date_end: eventoData.dismantle_date_end || "",
       coord_project_id: eventoData.coord_project_id || "", 
       coord_prod_id: eventoData.coord_prod_id || "",
+      coord_disenio_id: eventoData.coord_disenio_id || "",
       team_setup: eventoData.team_setup || "", 
       team_dismantle: eventoData.team_dismantle || "",
       setup_vehicle: eventoData.setup_vehicle || "", 
@@ -316,7 +317,7 @@ const Division = () => {
     const datosOrdenados = [...eventosReales].sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
 
     if (formato === "csv") {
-        const headers = ["FECHA", "EMPRESA", "PROYECTO", "LUGAR", "STAFF_DETALLE", "TOTAL_NOCHES", "PR", "PD", "MONTAJE", "EQUIPO_M", "DESMONTAJE", "EQUIPO_D"];
+        const headers = ["FECHA", "EMPRESA", "PROYECTO", "LUGAR", "STAFF_DETALLE", "TOTAL_NOCHES", "COORD. PROYECTO", "COORD. PRODUCCION", "MONTAJE", "EQUIPO_M", "DESMONTAJE", "EQUIPO_D"];
         const rows = datosOrdenados.map(ev => {
             const p = proyectos.find(proj => proj.id == ev.project_id);
             const clean = (t) => `"${(t || "").toString().replace(/;/g, ',').replace(/"/g, '""')}"`;
@@ -401,8 +402,8 @@ const Division = () => {
                         <td>
                             <div class="font-black text-slate-900 uppercase text-[10px] mb-1">${ev.nombre_evento || p?.name}</div>
                             ${ev.place ? `<div class="text-[8px] font-bold text-blue-500 uppercase mb-1">📍 ${ev.place}</div>` : ''}
-                            <div class="text-[8px] text-slate-500">PR: ${ev.coordinador_proyecto || "—"}</div>
-                            <div class="text-[8px] text-slate-500">PD: ${ev.coordinador_produccion || "—"}</div>
+                            <div class="text-[8px] text-slate-500">Coord. Proyecto: ${ev.coordinador_proyecto || "—"}</div>
+                            <div class="text-[8px] text-slate-500">Coord. Producci\u00f3n: ${ev.coordinador_produccion || "—"}</div>
                         </td>
                         <td><div class="text-slate-600 mb-1 leading-tight">${ev.desglose_noches || "—"}</div>${ev.noches_totales > 0 ? `<span class="badge">🌙 TOTAL: ${ev.noches_totales}</span>` : ''}</td>
                         <td><div class="text-[9px] font-bold text-blue-600">${montajeBonito}</div><div class="text-[9px] font-black text-slate-700 mt-1">🚚 ${ev.setup_vehicle || "—"}</div><div class="team-note">${ev.team_setup || "—"}</div></td>
@@ -509,8 +510,8 @@ const Division = () => {
                                     )}
                                 </div>
                                 <p className="text-gray-400 font-black uppercase text-[8px] mb-1">Coordinación</p>
-                                <p className="font-bold text-gray-700">PR: {evento.coordinador_proyecto || "—"}</p>
-                                <p className="font-bold text-gray-700">PD: {evento.coordinador_produccion || "—"}</p>
+                                <p className="font-bold text-gray-700">Coord. Proyecto: {evento.coordinador_proyecto || "—"}</p>
+                                <p className="font-bold text-gray-700">{"Coord. Producción: "}{evento.coordinador_produccion || "—"}</p>
                             </div>
                             <div>
                                 <p className="text-amber-600 font-black uppercase text-[8px] mb-1">Staff y Noches</p>
@@ -609,17 +610,24 @@ const Division = () => {
                   </div>
               </div>
 
-               <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-2xl">
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-gray-50 p-3 rounded-2xl">
                     <div className="flex flex-col gap-1">
-                        <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PR</label>
+                        <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coor. Proyecto</label>
                         <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_project_id} onChange={e => setForm({...form, coord_project_id: e.target.value})}>
                             <option value="">Sin asignar</option>
                             {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                         </select>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">Coord. PD</label>
+                        <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">{"Coord. Producción"}</label>
                         <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_prod_id} onChange={e => setForm({...form, coord_prod_id: e.target.value})}>
+                            <option value="">Sin asignar</option>
+                            {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <label className="text-[7px] font-black uppercase text-gray-400 tracking-widest">{"Coord. Diseño"}</label>
+                        <select className="p-2 bg-white rounded-lg text-[10px] outline-none border border-gray-200 font-bold" value={form.coord_disenio_id} onChange={e => setForm({...form, coord_disenio_id: e.target.value})}>
                             <option value="">Sin asignar</option>
                             {trabajadores.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                         </select>
