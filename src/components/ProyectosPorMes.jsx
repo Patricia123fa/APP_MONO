@@ -17,6 +17,7 @@ export default function ProyectosPorMes() {
   const [loading, setLoading] = useState(true);
   const [abiertos, setAbiertos] = useState({});
   const [mesSeleccionado, setMesSeleccionado] = useState("");
+  const [busquedaProyecto, setBusquedaProyecto] = useState("");
   const [modalAbierto, setModalAbierto] = useState(false);
   
   // ACTUALIZACIÓN: Añadido 'workers' al estado para no perder el equipo al guardar
@@ -93,14 +94,20 @@ export default function ProyectosPorMes() {
       .map((emp) => {
         const proyectosProcesados = Object.values(emp.projects).map(p => {
           const lista = Array.from(p.mesesSet);
+          const sinMes = lista.length === 0;
+          const textoBusqueda = `${p.name} ${emp.name}`.toLowerCase();
+          const coincideBusqueda = !busquedaProyecto.trim() || textoBusqueda.includes(busquedaProyecto.trim().toLowerCase());
           return {
             ...p,
             mesesList: lista.sort().reverse(),
-            isActive: lista.includes("9999-12") || lista.includes("999912")
+            isActive: lista.includes("9999-12") || lista.includes("999912"),
+            sinMes,
+            coincideBusqueda
           };
         }).filter(p => {
-          if (!mesSeleccionado) return p.isActive;
-          return p.isActive || p.mesesList.includes(mesSeleccionado);
+          if (busquedaProyecto.trim() && !p.coincideBusqueda) return false;
+          if (!mesSeleccionado) return true;
+          return p.sinMes || p.isActive || p.mesesList.includes(mesSeleccionado);
         });
         return { ...emp, projects: proyectosProcesados };
       })
@@ -111,7 +118,7 @@ export default function ProyectosPorMes() {
         return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB) || a.name.localeCompare(b.name);
       })
       .map((emp, i) => ({ ...emp, color: PALETA_PASTEL[i % PALETA_PASTEL.length] }));
-  }, [data, mesSeleccionado]);
+  }, [data, mesSeleccionado, busquedaProyecto]);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto p-3 md:p-6 font-sans mb-6 text-left">
@@ -120,13 +127,29 @@ export default function ProyectosPorMes() {
       <div className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 text-left">
         <div className="text-left">
           <span className="text-[10px] md:text-xs font-black text-gray-800 uppercase tracking-widest leading-none">Gestión de Proyectos</span>
-          <p className="text-[8px] md:text-[10px] text-gray-400 font-bold uppercase mt-1">
-            {mesSeleccionado ? `Historial: ${formatearMesAnio(mesSeleccionado)}` : "Proyectos activos actualmente"}
-          </p>
         </div>
-        <div className="flex gap-2">
-          <input type="month" value={mesSeleccionado} onChange={(e) => setMesSeleccionado(e.target.value)} className="bg-gray-50 px-4 py-2 rounded-2xl border-none text-[11px] font-bold outline-none focus:ring-2 focus:ring-yellow-400 transition-all" />
-          <button onClick={() => setMesSeleccionado("")} className="px-4 py-2 rounded-2xl text-[10px] font-black uppercase bg-gray-400 text-white active:scale-95 transition-transform">Ver Activos</button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+          <input
+            type="text"
+            value={busquedaProyecto}
+            onChange={(e) => setBusquedaProyecto(e.target.value)}
+            placeholder="Buscar proyecto o empresa"
+            className="w-full sm:w-72 bg-gray-50 px-4 py-2 rounded-2xl border-none text-[11px] font-bold outline-none focus:ring-2 focus:ring-yellow-400 transition-all placeholder:text-gray-300"
+          />
+          <div className="flex gap-2">
+            <input
+              type="month"
+              value={mesSeleccionado}
+              onChange={(e) => setMesSeleccionado(e.target.value)}
+              className="bg-gray-50 px-4 py-2 rounded-2xl border-none text-[11px] font-bold outline-none focus:ring-2 focus:ring-yellow-400 transition-all"
+            />
+            <button
+              onClick={() => setMesSeleccionado("")}
+              className="px-4 py-2 rounded-2xl text-[10px] font-black uppercase bg-gray-400 text-white active:scale-95 transition-transform"
+            >
+              Quitar mes
+            </button>
+          </div>
         </div>
       </div>
 
@@ -158,13 +181,16 @@ export default function ProyectosPorMes() {
                              {p.mesesList.filter(m => m !== '9999-12').slice(0, 2).map(m => (
                                <span key={m} className="text-[8px] text-gray-400 font-bold bg-gray-100 px-1.5 py-0.5 rounded border border-gray-100">{m}</span>
                              ))}
+                             {p.sinMes && (
+                               <span className="text-[8px] text-gray-500 font-bold bg-gray-100 px-1.5 py-0.5 rounded border border-dashed border-gray-300">Sin mes</span>
+                             )}
                           </div>
                         </td>
                         <td className="px-8 py-5">
                           <div className="flex justify-center items-center h-full">
-                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${p.isActive ? 'bg-green-100 border-green-200 text-green-700' : 'bg-gray-100 border-gray-200 text-gray-400'}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${p.isActive ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
-                              {p.isActive ? "Activo" : "Cerrado"}
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${p.sinMes ? 'bg-gray-100 border-gray-200 text-gray-500' : p.isActive ? 'bg-green-100 border-green-200 text-green-700' : 'bg-gray-100 border-gray-200 text-gray-400'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${p.sinMes ? 'bg-gray-400' : p.isActive ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
+                              {p.sinMes ? "Sin mes" : p.isActive ? "Activo" : "Cerrado"}
                             </span>
                           </div>
                         </td>
