@@ -5,6 +5,7 @@ import { IntroHoras } from "./IntroHoras"
 import  Proyectos  from "./Proyectos"
 import { Gestionar } from "./Gestionar"
 import Division  from "./Division"
+import Calendar from "./Calendar"
 
 export const Principal = () => {
 
@@ -14,6 +15,7 @@ export const Principal = () => {
     { label: "Ver proyectos", content: <Proyectos /> },
     { label: "Gestionar proyectos", content: <Gestionar /> },
     { label: "División de trabajo", content: <Division /> },
+    { label: "Calendario", content: <Calendar /> },
    
   ]
 
