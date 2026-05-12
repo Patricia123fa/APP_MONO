@@ -209,6 +209,24 @@ const getTypeTeamField = (type) => {
   return "team_setup";
 };
 
+const getTypeTitleField = (type) => {
+  if (type === "montaje") return "setup_title";
+  if (type === "desmontaje") return "dismantle_title";
+  if (type === "taller") return "workshop_title";
+  if (type === "mantenimiento") return "maintenance_title";
+  return "event_name";
+};
+
+const getDisplayTitleForEvent = (event) => {
+  if (!event) return "";
+  const phase = String(event._selectedPhase || "").trim();
+  if (phase === "montaje") return event.setup_title || event.event_name || event.nombre_evento || event.name || "";
+  if (phase === "desmontaje") return event.dismantle_title || event.event_name || event.nombre_evento || event.name || "";
+  if (phase === "taller") return event.workshop_title || event.event_name || event.nombre_evento || event.name || "";
+  if (phase === "mantenimiento") return event.maintenance_title || event.event_name || event.nombre_evento || event.name || "";
+  return event.event_name || event.nombre_evento || event.setup_title || event.dismantle_title || event.workshop_title || event.maintenance_title || event.name || "";
+};
+
 const ORDEN_PRIORIDAD_EMPRESAS = [
   "Monognomo",
   "Neozink",
@@ -377,6 +395,7 @@ export default function Calendar() {
   }, [projectOptions, projectSearch]);
   const activeTypeDate = useMemo(() => getTypeDateFields(addType), [addType]);
   const activeTeamField = useMemo(() => getTypeTeamField(addType), [addType]);
+  const activeTitleField = useMemo(() => getTypeTitleField(addType), [addType]);
 
   const workerMap = useMemo(() => {
     const map = new Map();
@@ -456,7 +475,16 @@ export default function Calendar() {
         const refDate = eventDate || setupDate || dismantleDate || workshopDate || maintenanceDate;
         if (!refDate) return null;
 
-        const name = (ev.event_name || ev.nombre_evento || project?.name || "Evento").toUpperCase();
+        const resolvedTitle =
+          ev.event_name ||
+          ev.nombre_evento ||
+          ev.setup_title ||
+          ev.dismantle_title ||
+          ev.workshop_title ||
+          ev.maintenance_title ||
+          project?.name ||
+          "Evento";
+        const name = String(resolvedTitle).toUpperCase();
         const setupRange = normalizeRange(ev.setup_date, ev.setup_date_end, null);
         const dismantleRange = normalizeRange(ev.dismantle_date, ev.dismantle_date_end, null);
         const workshopRange = normalizeRange(ev.workshop_date, ev.workshop_date_end, null);
@@ -469,7 +497,7 @@ export default function Calendar() {
           projectName: project?.name || "Proyecto",
           company: project?.company || "Sin empresa",
           monthKey: refDate.slice(0, 7),
-          event_name: ev.event_name || ev.nombre_evento || "",
+          event_name: String(ev.event_name || ev.nombre_evento || ev.setup_title || ev.dismantle_title || ev.workshop_title || ev.maintenance_title || "").trim(),
           setupStart: setupRange?.start || null,
           setupEnd: setupRange?.end || null,
           dismantleStart: dismantleRange?.start || null,
@@ -580,6 +608,7 @@ export default function Calendar() {
       }
 
       const hasNights = Object.values(ev.staff_detalle || {}).some((n) => Number(n) > 0);
+      const nightEmoji = hasNights ? "🌙 " : "";
       const colorWithNightPriority = (phase) => (hasNights ? { background: "#1E3A8A", text: "#EFF6FF" } : TYPE_COLORS[phase]);
       const coordinatorText = buildCoordinatorMeta(ev, workerMap);
       const staffText = buildStaffPreview(ev.staff_detalle, workerMap);
@@ -613,7 +642,7 @@ export default function Calendar() {
           id: `${ev.id}-setup`,
           event: ev,
           phase: "montaje",
-          label: `M: ${setupTitle}`,
+          label: `${nightEmoji}M: ${setupTitle}`,
           title: setupTitle,
           detail: buildSegmentInfo(ev, "montaje"),
           staff: staffText,
@@ -632,7 +661,7 @@ export default function Calendar() {
           id: `${ev.id}-event-day`,
           event: ev,
           phase: "evento",
-          label: `E: ${eventTitle}`,
+          label: `${nightEmoji}E: ${eventTitle}`,
           title: eventTitle,
           detail: buildSegmentInfo(ev, "evento"),
           staff: staffText,
@@ -652,7 +681,7 @@ export default function Calendar() {
           id: `${ev.id}-dismantle`,
           event: ev,
           phase: "desmontaje",
-          label: `D: ${dismantleTitle}`,
+          label: `${nightEmoji}D: ${dismantleTitle}`,
           title: dismantleTitle,
           detail: buildSegmentInfo(ev, "desmontaje"),
           staff: staffText,
@@ -672,7 +701,7 @@ export default function Calendar() {
           id: `${ev.id}-workshop`,
           event: ev,
           phase: "taller",
-          label: `T: ${workshopTitle}`,
+          label: `${nightEmoji}T: ${workshopTitle}`,
           title: workshopTitle,
           detail: buildSegmentInfo(ev, "taller"),
           staff: staffText,
@@ -692,7 +721,7 @@ export default function Calendar() {
           id: `${ev.id}-maintenance`,
           event: ev,
           phase: "mantenimiento",
-          label: `MA: ${maintenanceTitle}`,
+          label: `${nightEmoji}MA: ${maintenanceTitle}`,
           title: maintenanceTitle,
           detail: buildSegmentInfo(ev, "mantenimiento"),
           staff: staffText,
@@ -852,7 +881,17 @@ export default function Calendar() {
           setIsSaving(false);
           return;
         }
-        payload.event_name = String(payload.event_name || "").trim() || selectedProject.name || "";
+        const titleField = getTypeTitleField(addType);
+        const resolvedTitle =
+          String(payload[titleField] || "").trim() ||
+          String(payload.event_name || "").trim() ||
+          selectedProject.name ||
+          "";
+
+        payload[titleField] = resolvedTitle;
+        payload.event_name = addType === "evento" ? resolvedTitle : resolvedTitle;
+        // Compat: algunos endpoints antiguos usan `nombre_evento`.
+        payload.nombre_evento = payload.event_name;
         const startField = activeTypeDate.start;
         const endField = activeTypeDate.end;
         if (!payload[startField]) {
@@ -867,10 +906,17 @@ export default function Calendar() {
           setIsSaving(false);
           return;
         }
-        payload.setup_title = payload.event_name;
-        payload.dismantle_title = payload.event_name;
-        payload.workshop_title = payload.event_name;
-        payload.maintenance_title = payload.event_name;
+        if (addType === "evento") {
+          payload.setup_title = payload.event_name;
+          payload.dismantle_title = payload.event_name;
+          payload.workshop_title = payload.event_name;
+          payload.maintenance_title = payload.event_name;
+        } else {
+          payload.setup_title = titleField === "setup_title" ? payload.setup_title : "";
+          payload.dismantle_title = titleField === "dismantle_title" ? payload.dismantle_title : "";
+          payload.workshop_title = titleField === "workshop_title" ? payload.workshop_title : "";
+          payload.maintenance_title = titleField === "maintenance_title" ? payload.maintenance_title : "";
+        }
         payload.setup_vehicle = String(payload.setup_vehicle || "").trim();
         payload.dismantle_vehicle = String(payload.setup_vehicle || "").trim();
         payload.workshop_vehicle = String(payload.setup_vehicle || "").trim();
@@ -1079,7 +1125,15 @@ export default function Calendar() {
     setNewEvent({
       entry_type: selectedEvent.isVacation ? "vacaciones" : "evento",
       project_id: String(selectedEvent.project_id || ""),
-      event_name: selectedEvent.event_name || selectedEvent.nombre_evento || "",
+      event_name:
+        selectedEvent.event_name ||
+        selectedEvent.nombre_evento ||
+        selectedEvent.setup_title ||
+        selectedEvent.dismantle_title ||
+        selectedEvent.workshop_title ||
+        selectedEvent.maintenance_title ||
+        selectedEvent.name ||
+        "",
       event_date: precision === "month" ? eventDate.slice(0, 7) : eventDate,
       event_date_precision: precision,
       place: selectedEvent.place || "",
@@ -1090,18 +1144,18 @@ export default function Calendar() {
       setup_vehicle: selectedEvent.setup_vehicle || "",
       dismantle_vehicle: selectedEvent.dismantle_vehicle || "",
       team_setup: mergeTeamWithStaff(sanitizeTeamMembers(selectedEvent.team_setup || "", workers).join(", "), selectedEvent.staff_detalle),
-      setup_title: selectedEvent.setup_title || "",
+      setup_title: selectedEvent.setup_title || selectedEvent.event_name || selectedEvent.nombre_evento || "",
       team_dismantle: mergeTeamWithStaff(sanitizeTeamMembers(selectedEvent.team_dismantle || "", workers).join(", "), selectedEvent.staff_detalle),
-      dismantle_title: selectedEvent.dismantle_title || "",
+      dismantle_title: selectedEvent.dismantle_title || selectedEvent.event_name || selectedEvent.nombre_evento || "",
       workshop_date: String(selectedEvent.workshop_date || "").slice(0, 10),
       workshop_date_end: String(selectedEvent.workshop_date_end || "").slice(0, 10),
       team_workshop: mergeTeamWithStaff(sanitizeTeamMembers(selectedEvent.team_workshop || "", workers).join(", "), selectedEvent.staff_detalle),
-      workshop_title: selectedEvent.workshop_title || "",
+      workshop_title: selectedEvent.workshop_title || selectedEvent.event_name || selectedEvent.nombre_evento || "",
       workshop_vehicle: selectedEvent.workshop_vehicle || "",
       maintenance_date: String(selectedEvent.maintenance_date || "").slice(0, 10),
       maintenance_date_end: String(selectedEvent.maintenance_date_end || "").slice(0, 10),
       team_maintenance: mergeTeamWithStaff(sanitizeTeamMembers(selectedEvent.team_maintenance || "", workers).join(", "), selectedEvent.staff_detalle),
-      maintenance_title: selectedEvent.maintenance_title || "",
+      maintenance_title: selectedEvent.maintenance_title || selectedEvent.event_name || selectedEvent.nombre_evento || "",
       maintenance_vehicle: selectedEvent.maintenance_vehicle || "",
       notes: selectedEvent.notes || "",
       night_date: String(selectedEvent.night_date || "").slice(0, 10),
@@ -1152,6 +1206,138 @@ export default function Calendar() {
       await fetchData();
     } catch (error) {
       alert(error.message || "Error eliminando vacaciones");
+    }
+  };
+
+  const buildUpdatePayloadFromEvent = (ev) => {
+    const eventName =
+      String(
+        ev?.event_name ||
+          ev?.nombre_evento ||
+          ev?.setup_title ||
+          ev?.dismantle_title ||
+          ev?.workshop_title ||
+          ev?.maintenance_title ||
+          ""
+      ).trim() || (projectMap.get(String(ev?.project_id || ""))?.name || "");
+    const normalizeEnd = (value) => {
+      const raw = String(value || "").slice(0, 10);
+      if (!raw || raw === "0000-00-00") return null;
+      return raw;
+    };
+    const noches_staff = Object.entries(ev?.staff_detalle || {}).map(([workerId, nights]) => ({
+      worker_id: Number(workerId),
+      nights: Number(nights) || 0,
+    }));
+    return {
+      id: String(ev?.id || ""),
+      entry_type: ev?.entry_type || "evento",
+      project_id: String(ev?.project_id || ""),
+      event_name: eventName,
+      nombre_evento: eventName,
+      event_date: String(ev?.event_date || "").slice(0, 10),
+      event_date_precision: ev?.event_date_precision || "day",
+      place: ev?.place || "",
+      setup_date: String(ev?.setup_date || "").slice(0, 10),
+      setup_date_end: normalizeEnd(ev?.setup_date_end),
+      dismantle_date: String(ev?.dismantle_date || "").slice(0, 10),
+      dismantle_date_end: normalizeEnd(ev?.dismantle_date_end),
+      setup_vehicle: ev?.setup_vehicle || "",
+      dismantle_vehicle: ev?.dismantle_vehicle || "",
+      team_setup: ev?.team_setup || "",
+      setup_title: ev?.setup_title || "",
+      team_dismantle: ev?.team_dismantle || "",
+      dismantle_title: ev?.dismantle_title || "",
+      workshop_date: String(ev?.workshop_date || "").slice(0, 10),
+      workshop_date_end: String(ev?.workshop_date_end || "").slice(0, 10),
+      team_workshop: ev?.team_workshop || "",
+      workshop_title: ev?.workshop_title || "",
+      workshop_vehicle: ev?.workshop_vehicle || "",
+      maintenance_date: String(ev?.maintenance_date || "").slice(0, 10),
+      maintenance_date_end: String(ev?.maintenance_date_end || "").slice(0, 10),
+      team_maintenance: ev?.team_maintenance || "",
+      maintenance_title: ev?.maintenance_title || "",
+      maintenance_vehicle: ev?.maintenance_vehicle || "",
+      notes: ev?.notes || "",
+      night_date: String(ev?.night_date || "").slice(0, 10),
+      coord_project_id: ev?.coord_project_id || "",
+      coord_prod_id: ev?.coord_prod_id || "",
+      coord_disenio_id: ev?.coord_disenio_id || "",
+      noches_staff,
+    };
+  };
+
+  const handleDeleteSelectedPhase = async () => {
+    if (!selectedEvent || selectedEvent.isVacation) return;
+    if (!selectedEvent.id) return;
+    const phase = selectedEvent._selectedPhase;
+    if (!phase) {
+      alert("No se ha detectado la fase seleccionada.");
+      return;
+    }
+
+    const phaseLabel =
+      phase === "montaje"
+        ? "Montaje"
+        : phase === "evento"
+          ? "Evento"
+          : phase === "desmontaje"
+            ? "Desmontaje"
+            : phase === "taller"
+              ? "Taller"
+              : phase === "mantenimiento"
+                ? "Mantenimiento"
+                : phase;
+
+    if (!window.confirm(`¿Eliminar solo la fase "${phaseLabel}" de esta entrada?`)) return;
+
+    try {
+      const payload = buildUpdatePayloadFromEvent(selectedEvent);
+
+      if (phase === "montaje") {
+        payload.setup_date = "";
+        payload.setup_date_end = null;
+        payload.team_setup = "";
+        payload.setup_title = "";
+        payload.setup_vehicle = "";
+      } else if (phase === "evento") {
+        payload.event_date = "";
+        payload.event_date_precision = "day";
+      } else if (phase === "desmontaje") {
+        payload.dismantle_date = "";
+        payload.dismantle_date_end = null;
+        payload.team_dismantle = "";
+        payload.dismantle_title = "";
+        payload.dismantle_vehicle = "";
+      } else if (phase === "taller") {
+        payload.workshop_date = "";
+        payload.workshop_date_end = "";
+        payload.team_workshop = "";
+        payload.workshop_title = "";
+        payload.workshop_vehicle = "";
+      } else if (phase === "mantenimiento") {
+        payload.maintenance_date = "";
+        payload.maintenance_date_end = "";
+        payload.team_maintenance = "";
+        payload.maintenance_title = "";
+        payload.maintenance_vehicle = "";
+      } else {
+        alert("Fase no soportada para eliminar parcialmente.");
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}?action=update_event`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!json?.success) throw new Error(json?.message || "No se pudo eliminar la fase");
+
+      setSelectedEvent(null);
+      await fetchData();
+    } catch (error) {
+      alert(error.message || "Error eliminando la fase");
     }
   };
 
@@ -1336,35 +1522,47 @@ export default function Calendar() {
       </div>
 
       {selectedEvent && (
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-2 sm:items-center sm:p-3">
-          <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white text-gray-800">
-            <div className="sticky top-0 z-10 mb-4 flex items-start justify-between gap-3 border-b bg-white p-4 sm:p-6">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{selectedEvent.company}</p>
-                <h3 className="text-lg font-black uppercase leading-tight">{selectedEvent.projectName}</h3>
-              </div>
-              <button className="rounded-md px-2 text-2xl leading-none text-gray-500" onClick={() => { setSelectedEvent(null); }}>×</button>
-            </div>
-            <div className="px-4 pb-4 sm:px-6 sm:pb-6">
-            <button
-              onClick={openEditModal}
-              className="mb-3 w-full rounded-xl bg-black px-3 py-2 text-xs font-black uppercase text-white"
-            >
-              Editar este evento
-            </button>
-            {selectedEvent.isVacation && (
-              <button
-                onClick={handleDeleteVacation}
-                className="mb-3 w-full rounded-xl bg-red-600 px-3 py-2 text-xs font-black uppercase text-white"
-              >
-                Eliminar vacaciones
-              </button>
-            )}
+       <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-2 sm:items-center sm:p-3">
+           <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white text-gray-800">
+             <div className="sticky top-0 z-10 mb-4 flex items-start justify-between gap-3 border-b bg-white p-4 sm:p-6">
+               <div>
+                 <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                   {selectedEvent.isVacation ? "vacaciones" : selectedEvent._selectedPhase || selectedEvent.entry_type || "evento"}
+                 </p>
+                 <h3 className="text-lg font-black uppercase leading-tight">{getDisplayTitleForEvent(selectedEvent) || "-"}</h3>
+                 <p className="text-[11px] font-semibold text-gray-600">{selectedEvent.projectName || "-"}</p>
+               </div>
+               <button className="rounded-md px-2 text-2xl leading-none text-gray-500" onClick={() => { setSelectedEvent(null); }}>×</button>
+             </div>
+             <div className="px-4 pb-4 sm:px-6 sm:pb-6">
+             <button
+               onClick={openEditModal}
+               className="mb-3 w-full rounded-xl bg-black px-3 py-2 text-xs font-black uppercase text-white"
+             >
+               Editar este evento
+             </button>
+             {!selectedEvent.isVacation && selectedEvent._selectedPhase && (
+               <button
+                 onClick={handleDeleteSelectedPhase}
+                 className="mb-3 w-full rounded-xl bg-red-600 px-3 py-2 text-xs font-black uppercase text-white"
+               >
+                 Eliminar fase
+               </button>
+             )}
+             {selectedEvent.isVacation && (
+               <button
+                 onClick={handleDeleteVacation}
+                 className="mb-3 w-full rounded-xl bg-red-600 px-3 py-2 text-xs font-black uppercase text-white"
+               >
+                 Eliminar vacaciones
+               </button>
+             )}
 
             <div className="space-y-2 text-sm">
               <p><b>Empresa:</b> {selectedEvent.company || "-"}</p>
               <p><b>Proyecto:</b> {selectedEvent.projectName || "-"}</p>
-              <p><b>Título:</b> {selectedEvent.event_name || selectedEvent.setup_title || selectedEvent.name || "-"}</p>
+              <p><b>Tipo:</b> {selectedEvent.isVacation ? "vacaciones" : selectedEvent._selectedPhase || selectedEvent.entry_type || "evento"}</p>
+              <p><b>Título:</b> {getDisplayTitleForEvent(selectedEvent) || "-"}</p>
               <p><b>Fecha del evento:</b> {formatDate(selectedEvent.event_date)}</p>
               {(String(selectedEvent.setup_date || "").slice(0, 10) &&
                 (String(selectedEvent.setup_date || "").slice(0, 10) !== String(selectedEvent.event_date || "").slice(0, 10) ||
@@ -1472,16 +1670,31 @@ export default function Calendar() {
 
               {addType !== "vacaciones" && (
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-[11px] font-semibold text-gray-600 sm:col-span-2">
-                  Nombre del proyecto:{" "}
-                  <span className="font-black text-gray-800">
-                    {projectMap.get(String(newEvent.project_id))?.name || "-"}
-                  </span>
+                  <p>
+                    Nombre del proyecto:{" "}
+                    <span className="font-black text-gray-800">
+                      {projectMap.get(String(newEvent.project_id))?.name || "-"}
+                    </span>
+                  </p>
+                  <p>
+                    Título:{" "}
+                    <span className="font-black text-gray-800">
+                      {String(newEvent[activeTitleField] || "").trim() || "-"}
+                    </span>
+                  </p>
                 </div>
               )}
 
               {editingEventId && !isEditFormExpanded && (
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs sm:col-span-2">
-                  <p><b>Título:</b> {newEvent.event_name || "-"}</p>
+                  <label className="mb-1 block text-[11px] font-black uppercase text-gray-500">Título</label>
+                  <input
+                    type="text"
+                    placeholder="Título"
+                    value={newEvent[activeTitleField] || ""}
+                    onChange={(e) => setNewEvent((p) => ({ ...p, [activeTitleField]: e.target.value }))}
+                    className="mb-2 w-full rounded-xl border border-gray-200 bg-white p-3"
+                  />
                   <p><b>Fecha evento:</b> {formatDate(newEvent.event_date)}</p>
                   <p><b>Fecha o rango:</b> {formatDateRange(newEvent[activeTypeDate.start], activeTypeDate.end ? newEvent[activeTypeDate.end] : null)}</p>
                   <p><b>Lugar:</b> {newEvent.place || "-"}</p>
@@ -1501,12 +1714,12 @@ export default function Calendar() {
                 </div>
               )}
 
-              {(!editingEventId || isEditFormExpanded) && addType !== "vacaciones" && (
+              {addType !== "vacaciones" && (!editingEventId || isEditFormExpanded) && (
                 <input
                   type="text"
                   placeholder="Título"
-                  value={newEvent.event_name || ""}
-                  onChange={(e) => setNewEvent((p) => ({ ...p, event_name: e.target.value }))}
+                  value={newEvent[activeTitleField] || ""}
+                  onChange={(e) => setNewEvent((p) => ({ ...p, [activeTitleField]: e.target.value }))}
                   className="rounded-xl border border-gray-200 p-3 sm:col-span-2"
                 />
               )}

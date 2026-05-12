@@ -10,11 +10,14 @@ import Calendar from "./Calendar"
 export const Principal = () => {
 
   // DEFINIMOS CON QUÉ ENLAZA CADA PESTAÑA
+  // Mantener en código pero ocultar en la UI (activar cuando toque).
+  const SHOW_DIVISION_TAB = false
+
   const tabsData = [
     { label: "Registro", content: <IntroHoras /> },
     { label: "Ver proyectos", content: <Proyectos /> },
     { label: "Gestionar proyectos", content: <Gestionar /> },
-    { label: "División de trabajo", content: <Division /> },
+    ...(SHOW_DIVISION_TAB ? [{ label: "División de trabajo", content: <Division /> }] : []),
     { label: "Calendario", content: <Calendar /> },
    
   ]
